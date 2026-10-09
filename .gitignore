@@ -1,6 +1,10 @@
 # Reference implementation (separate git repo, studied but not tracked here)
 2025-tfg-diego-lopez/
 
+# Jekyll build output
+docs/_site/
+docs/.jekyll-cache/
+
 # Python
 .venv/
 __pycache__/

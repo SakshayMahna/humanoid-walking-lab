@@ -1,0 +1,30 @@
+title: Humanoid Walking Lab
+description: "Weekly notes on learning humanoid locomotion with MuJoCo and PyTorch"
+url: "https://sakshaymahna.github.io"
+baseurl: "/humanoid-walking-lab"
+repository: "SakshayMahna/humanoid-walking-lab"
+
+remote_theme: mmistakes/minimal-mistakes@4.26.2
+minimal_mistakes_skin: dark
+search: true
+
+markdown: kramdown
+timezone: Asia/Kolkata
+
+paginate: 10
+paginate_path: /page:num/
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-include-cache
+  - jekyll-paginate
+  - jekyll-feed
+
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      read_time: true
+      show_date: true
