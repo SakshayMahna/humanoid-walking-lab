@@ -1,0 +1,6 @@
+# Reference implementation (separate git repo, studied but not tracked here)
+2025-tfg-diego-lopez/
+
+# Python
+.venv/
+__pycache__/
