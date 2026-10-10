@@ -1,0 +1,33 @@
+---
+# Front matter (the dashes) tells Jekyll to process this file with Sass.
+---
+
+@charset "utf-8";
+
+@import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}";
+@import "minimal-mistakes";
+
+// ---- Site customizations ----
+
+// Centre tables (the theme makes them full-width blocks)
+.page__content table {
+  display: table;
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// Centre images and GIFs
+.page__content p > img,
+.page__content p > a > img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// Keep display equations inside notice boxes from overflowing on small screens
+.page__content .notice--info mjx-container[display="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
