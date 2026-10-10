@@ -7,13 +7,13 @@ L = 0.5                          # default rod length (m)
 MOTOR = '<motor joint="hinge"/>'  # motor: ctrl is applied directly as torque (N·m)
 
 
-def pendulum_xml(L: float, actuator: str = "") -> str:
+def pendulum_xml(L: float, actuator: str = "", integrator: str = "Euler", armature: float = 0.0) -> str:
     pendulum = f"""
     <mujoco>
-        <option timestep="0.005"/>  <!-- same dt as the G1 policy -->
+        <option timestep="0.005" integrator="{integrator}"/>  <!-- same dt as the G1 policy -->
         <worldbody>
             <body name="pole">  <!-- no pos: pivot at world origin -->
-                <joint name="hinge" type="hinge" axis="0 1 0"/>  <!-- swings in x-z plane -->
+                <joint name="hinge" type="hinge" axis="0 1 0" armature="{armature}"/>  <!-- swings in x-z plane -->
                 <geom name="rod" type="capsule" fromto="0 0 0 0 0 {-L}" size="0.01" density="0"/>  <!-- massless rod -->
                 <geom name="bob" type="sphere" pos="0 0 {-L}" size="0.05" mass="1"/>  <!-- 1 kg tip mass -->
             </body>

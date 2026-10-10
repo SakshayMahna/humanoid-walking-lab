@@ -14,7 +14,7 @@ Reference: `2025-tfg-diego-lopez/pruebas/G1/walk_fixed.ipynb`.
   (`mjpython` on macOS).
   *Check:* asserts on sizes; free fall matches `z0 - ½gt²`.
 
-- [ ] **Day 2 — Ex 2: Pendulum + PD control.**
+- [x] **Day 2 — Ex 2: Pendulum + PD control.**
   Write a one-hinge MJCF. Control it with your own PD (torque motor),
   then with MuJoCo's built-in position actuator (`gainprm`/`biasprm`).
   Armature and force limits.

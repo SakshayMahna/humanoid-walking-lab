@@ -8,7 +8,7 @@ script_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(script_dir.parent))  # make exercises/render_utils.py importable
 from render_utils import make_camera, record_gif, render_image
 
-from pendulum import pendulum_xml
+from pendulum import MOTOR, make_pd, metrics, pendulum_xml
 
 # Create and load a pendulum
 L = 0.5  # rod length (m)
@@ -150,8 +150,195 @@ print(f"saved {n_frames} frames to {script_dir / 'pendulum_pd_motor.gif'}")
 
 
 # Built-in Position Actuator (Part C)
-# TODO
+print("\n=== Built-in position actuator ===")
+xml = pendulum_xml(L, f'<position joint="hinge" kp="{KP}" kv="{KD}"/>')
+
+model = mujoco.MjModel.from_xml_string(xml)
+data = mujoco.MjData(model)
+
+assert model.nu == 1, f"expected 1 actuator, got {model.nu}"
+
+# gainprm/biasprm are fixed-size rows of 10 (mjNGAIN = mjNBIAS = 10) shared by every
+# actuator type; a position actuator only uses the first 3, the rest stay 0.
+gain = model.actuator_gainprm[0, :3]   # row 0 = our only actuator
+bias = model.actuator_biasprm[0, :3]
+print(f"gainprm[:3] = {gain}")
+print(f"biasprm[:3] = {bias}")
+
+# MuJoCo actuator force:  force = gain[0]*ctrl + bias[0] + bias[1]*q + bias[2]*q_dot
+# position actuator sets: gain = [KP, 0, 0], bias = [0, -KP, -KV]
+#                      => force = KP*ctrl - KP*q - KV*q_dot = KP*(ctrl - q) - KV*q_dot
+# i.e. the PD law from Part B, with ctrl as the target angle.
+assert np.allclose(gain, [KP, 0, 0]), f"unexpected gainprm {gain}"
+assert np.allclose(bias, [0, -KP, -KD]), f"unexpected biasprm {bias}"
+
+# Run simulation
+mujoco.mj_resetData(model, data)  # start at rest, hanging down
+
+data.ctrl[0] = TARGET            # ctrl is now the target angle (rad), not a torque; it persists across steps
+q_position = []
+while data.time < duration:
+    mujoco.mj_step(model, data)
+    q_position.append(data.qpos[0])
+q_position = np.array(q_position)
+
+max_diff = np.max(np.abs(q_position - q_motor))   # element-wise difference between the two runs
+print(f"max |q_position - q_motor| = {max_diff:.2e} rad")
+
+# Same law, same state at the start of each step, same dt -> identical up to float rounding.
+assert max_diff < 1e-9, f"built-in actuator differs from manual PD by {max_diff:.2e} rad"
+
+# Bonus: Integrator vs. Stability
+print("\n=== Bonus: integrator vs. stability (KD beyond the Euler limit) ===")
+KD_BIG = 150  # above KD_max = 2*I/dt ≈ 100, where Euler diverges
+
+
+def run_case(actuator, integrator, control=None, duration=3.0):
+    """Run from rest; return (diverged, final angle, max |q|)."""
+    model = mujoco.MjModel.from_xml_string(pendulum_xml(L, actuator, integrator=integrator))
+    data = mujoco.MjData(model)
+    data.ctrl[0] = TARGET  # only used by the position actuator; overwritten by `control` for the motor
+    max_q = 0.0
+    # Step count, not data.time: a blow-up makes MuJoCo reset data (time -> 0) and a time loop never ends.
+    for _ in range(round(duration / model.opt.timestep)):
+        if control is not None:
+            control(model, data)
+        mujoco.mj_step(model, data)
+        max_q = max(max_q, abs(data.qpos[0]))
+        if data.warning[mujoco.mjtWarning.mjWARN_BADQACC].number > 0 or abs(data.qpos[0]) > np.pi:
+            return True, float("nan"), max_q
+    return False, data.qpos[0], max_q
+
+
+cases = {
+    "manual PD (motor)": (MOTOR, make_pd(KP, KD_BIG, TARGET)),
+    "built-in position": (f'<position joint="hinge" kp="{KP}" kv="{KD_BIG}"/>', None),
+}
+results = {}
+print(f"{'controller':<20} | {'integrator':<12} | {'result':<10} | final (rad)")
+print("-" * 60)
+for name, (actuator, control) in cases.items():
+    for integrator in ("Euler", "implicitfast"):
+        diverged, final, max_q = run_case(actuator, integrator, control)
+        results[(name, integrator)] = diverged
+        print(f"{name:<20} | {integrator:<12} | {'DIVERGED' if diverged else 'stable':<10} | {final:.4f}")
+
+# Euler: both controllers apply -KD*q_dot using the velocity at the START of the step.
+# With KD*dt/I > 2, each step overcorrects by more than the error -> both diverge.
+assert results[("manual PD (motor)", "Euler")] and results[("built-in position", "Euler")]
+# implicitfast: MuJoCo knows the position actuator's force depends on velocity (-KV*q_dot),
+# so it solves for the END-of-step velocity instead -> no overcorrection, stable for any KV.
+assert not results[("built-in position", "implicitfast")]
+# The manual PD is just a number written to ctrl; MuJoCo can't see that it depends on q_dot,
+# so the integrator can't treat it implicitly and it still diverges.
+assert results[("manual PD (motor)", "implicitfast")]
 
 
 # Torque Limit and Armature (Part D)
-# TODO
+print("\n=== D1: Torque limit ===")
+FORCE_LIMIT = 1.0  # max actuator torque (N·m)
+xml = pendulum_xml(
+    L,
+    f'<position joint="hinge" kp="{KP}" kv="{KD}" '
+    f'forcelimited="true" forcerange="{-FORCE_LIMIT} {FORCE_LIMIT}"/>',  # clamp force to ±FORCE_LIMIT
+)
+
+model = mujoco.MjModel.from_xml_string(xml)
+data = mujoco.MjData(model)
+
+assert model.nu == 1, f"expected 1 actuator, got {model.nu}"
+
+# Before running: torque needed to hold the pendulum where the unlimited PD settled (Part B)
+q_rest = q_motor[-1]
+hold_torque = m * g * L * np.sin(q_rest)
+print(f"torque to hold {q_rest:.3f} rad = {hold_torque:.3f} N·m vs limit {FORCE_LIMIT} N·m")
+
+# Run 6 s from rest with the target held in ctrl
+mujoco.mj_resetData(model, data)
+data.ctrl[0] = TARGET
+q_limited, force_limited = [], []
+for _ in range(round(6.0 / model.opt.timestep)):
+    mujoco.mj_step(model, data)
+    q_limited.append(data.qpos[0])
+    force_limited.append(data.actuator_force[0])   # force actually applied, after clamping
+q_limited = np.array(q_limited)
+force_limited = np.array(force_limited)
+
+# Angle where gravity's torque equals the most the actuator can give: m*g*L*sin(q) = FORCE_LIMIT
+q_balance = np.arcsin(FORCE_LIMIT / (m * g * L))
+last = q_limited[-round(1.5 / model.opt.timestep):]  # last 1.5 s (~1 swing)
+
+print(f"max |actuator force| = {np.abs(force_limited).max():.4f} N·m")
+print(f"max angle            = {q_limited.max():.4f} rad (target {TARGET})")
+print(f"balance angle        = {q_balance:.4f} rad")
+print(f"last 1.5 s: mean     = {last.mean():.4f} rad, range {last.min():.3f} .. {last.max():.3f}")
+
+assert np.abs(force_limited).max() <= FORCE_LIMIT + 1e-9, "force exceeded the limit"
+assert q_limited.max() < TARGET, "torque-limited pendulum reached the target"
+assert abs(last.mean() - q_balance) < 0.05, "not centred on the balance angle"
+
+# Actuator saturation: the PD asks for more than 1 N·m throughout, so the applied torque is a
+# constant +1 N·m. The -KD*q_dot term is clamped away with it -> no damping, so the pendulum
+# swings forever around q_balance (gravity torque = force limit).
+
+# Video: start at rest, watch it rise and keep swinging short of the target
+mujoco.mj_resetData(model, data)
+data.ctrl[0] = TARGET
+n_frames = record_gif(
+    model, data, script_dir / "pendulum_torque_limit.gif",
+    duration=6.0, camera=cam, capture_fps=30,
+    label=f"position KP={KP:g} KD={KD:g}  limit ±{FORCE_LIMIT:g} N·m",
+)
+print(f"saved {n_frames} frames to {script_dir / 'pendulum_torque_limit.gif'}")
+
+print("\n=== D2: Armature ===")
+ARMATURE = 0.1  # kg·m², reflected rotor inertia added to the joint
+POSITION = f'<position joint="hinge" kp="{KP}" kv="{KD}"/>'
+
+
+def run_position(armature, duration=3.0):
+    """Position actuator from rest, ctrl = TARGET. Returns (t, q, force, inertia, model, data)."""
+    model = mujoco.MjModel.from_xml_string(pendulum_xml(L, POSITION, armature=armature))
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    inertia = data.M[0]                 # joint-space inertia MuJoCo uses (includes armature)
+    data.ctrl[0] = TARGET
+    t, q, force = [], [], []
+    for _ in range(round(duration / model.opt.timestep)):
+        mujoco.mj_step(model, data)
+        t.append(data.time)
+        q.append(data.qpos[0])
+        force.append(data.actuator_force[0])
+    return np.array(t), np.array(q), np.array(force), inertia, model, data
+
+
+t0, q0_arm, f0, I0, _, _ = run_position(0.0)
+t1, q1_arm, f1, I1, model, data = run_position(ARMATURE)
+m0 = metrics(t0, q0_arm, f0, diverged=False)
+m1 = metrics(t1, q1_arm, f1, diverged=False)
+
+# Linear theory: armature adds straight to the inertia; stiffness is unchanged
+k_eff = KP + m * g * L * np.cos(q_rest)
+for name, I_, met in (("no armature", I0, m0), (f"armature {ARMATURE}", I1, m1)):
+    wn = np.sqrt(k_eff / I_)
+    zeta = KD / (2 * np.sqrt(k_eff * I_))
+    print(f"{name:<14} | I = {I_:.3f} | ω_n = {wn:5.2f} rad/s | ζ = {zeta:.2f} | "
+          f"final = {met['final']:.4f} | overshoot = {met['overshoot']:.4f} | settle = {met['settling_time']:.2f} s")
+
+# MuJoCo adds armature directly to the joint's inertia
+assert abs(I1 - (I0 + ARMATURE)) < 1e-9, f"inertia {I1} != {I0} + {ARMATURE}"
+# Same gains, more inertia: slower (lower ω_n), less damped (lower ζ) -> more overshoot, longer settling
+assert m1["overshoot"] > m0["overshoot"] and m1["settling_time"] > m0["settling_time"]
+# Static balance KP*error = m*g*L*sin(q) has no inertia in it -> same final angle
+assert abs(m1["final"] - m0["final"]) < 1e-3
+
+# Video with armature, from rest
+mujoco.mj_resetData(model, data)
+data.ctrl[0] = TARGET
+n_frames = record_gif(
+    model, data, script_dir / "pendulum_armature.gif",
+    duration=3.0, camera=cam, capture_fps=30,
+    label=f"position KP={KP:g} KD={KD:g}  armature={ARMATURE:g}",
+)
+print(f"saved {n_frames} frames to {script_dir / 'pendulum_armature.gif'}")
+
