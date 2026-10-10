@@ -103,6 +103,25 @@ def title_card(lines, seconds=2.0):
     return [img] * int(seconds * FPS)
 
 
+def thumbnail(frame, path):
+    """Dim a settled frame and put a bold title band across the middle."""
+    img = Image.blend(frame, Image.new("RGB", (W, H), (10, 11, 20)), 0.35)
+    d = ImageDraw.Draw(img)
+    band_y0, band_y1 = H // 2 - 170, H // 2 + 170
+    d.rectangle((0, band_y0, W, band_y1), fill=(10, 11, 20))
+    d.rectangle((0, band_y0, W, band_y0 + 6), fill=COLORS[0])
+    d.rectangle((0, band_y1 - 6, W, band_y1), fill=COLORS[6])
+    lines = [("24 pendulums", 96, FG), ("Why don't they reach the target?", 46, COLORS[2]),
+             ("PD control in MuJoCo", 36, (170, 175, 200))]
+    y = band_y0 + 40
+    for text, size, color in lines:
+        tw = d.textlength(text, font=font(size))
+        d.text(((W - tw) / 2, y), text, fill=color, font=font(size))
+        y += size + 28
+    img.save(path)
+    print(f"saved {path.relative_to(REPO)}")
+
+
 def pd_gravity(kp, kd, m=1.0, g=9.81):
     def control(model, data):
         q = data.qpos[0]
@@ -120,6 +139,7 @@ if __name__ == "__main__":
     kps = [5, 10, 20, 40, 80, 160, 320, 640, 1280]
     frames += scene("1. Stiffer spring (KP up)", "KD = 2.  Closer to target, but more overshoot",
                     [(f"KP={kp}  zeta={zeta(kp, 2):.2f}", make_pd(kp, 2)) for kp in kps], cols=3)
+    thumbnail(frames[-1], OUT / "thumbnail.png")
 
     kds = [0.25, 0.5, 1, 2, 3.5, 5, 8, 12, 20]
     frames += scene("2. More damping (KD up)", "KP = 20.  Less overshoot, then too slow",
