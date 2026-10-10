@@ -8,3 +8,6 @@ docs/.jekyll-cache/
 # Python
 .venv/
 __pycache__/
+
+# MuJoCo warning log (written when a simulation goes unstable)
+MUJOCO_LOG.TXT

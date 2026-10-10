@@ -1,10 +1,15 @@
-import mujoco
+import sys
 from pathlib import Path
-from PIL import Image
+
+import mujoco
+
+script_dir = Path(__file__).resolve().parent
+sys.path.insert(0, str(script_dir.parent))  # make exercises/render_utils.py importable
+from render_utils import make_camera, record_gif, render_image
 
 # Load Robot Model
-script_dir = Path(__file__).resolve().parent
-robot_xml = script_dir.parent / "robot" / "g1.xml"
+repo_root = script_dir.parent.parent
+robot_xml = repo_root / "robot" / "g1.xml"
 
 model = mujoco.MjModel.from_xml_path(str(robot_xml))
 data = mujoco.MjData(model)
@@ -47,11 +52,7 @@ print(f"lin vel (m/s)      = {data.qvel[0:3]}")
 print(f"ang vel (rad/s)    = {data.qvel[3:6]}")
 
 # Render Simulation
-with mujoco.Renderer(model) as renderer:
-    renderer.update_scene(data)
-    image = Image.fromarray(renderer.render())
-    image.save(script_dir / "g1_initial.png")
-    image.show()
+render_image(model, data, script_dir / "g1_initial.png", show=True)
 
 # Free-Fall Test
 print("\n=== Free-fall test ===")
@@ -94,30 +95,12 @@ assert error < tol, f"free-fall error {error:.5f} m exceeds tolerance {tol:.5f} 
 
 # Free fall video
 print("\n=== Free-fall video ===")
-video_duration = 0.5
-capture_fps = 120
-playback_fps = 30
-
-cam = mujoco.MjvCamera()
-cam.lookat[:] = [0, 0, 0.2]
-cam.distance = 4.0
-cam.azimuth = 135
-cam.elevation = 0
+cam = make_camera(lookat=[0, 0, 0.2], distance=4.0, azimuth=135, elevation=0)  # frames the whole 1.2 m drop
 
 mujoco.mj_resetData(model, data)
-frames = []
-with mujoco.Renderer(model, height=480, width=640) as renderer:
-    while data.time < video_duration:
-        mujoco.mj_step(model, data)
-        if len(frames) < data.time * capture_fps:
-            renderer.update_scene(data, camera=cam)
-            frames.append(Image.fromarray(renderer.render()))
-
-frames[0].save(
-    script_dir / "free_fall.gif",
-    save_all=True,
-    append_images=frames[1:],
-    duration=1000 // playback_fps,
-    loop=0,
+n_frames = record_gif(
+    model, data, script_dir / "free_fall.gif",
+    duration=0.5, camera=cam,
+    capture_fps=120, playback_fps=30,  # 4x slow motion
 )
-print(f"saved {len(frames)} frames to {script_dir / 'free_fall.gif'}")
+print(f"saved {n_frames} frames to {script_dir / 'free_fall.gif'}")
