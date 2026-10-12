@@ -147,3 +147,30 @@ def apply_collision_settings(spec: mujoco.MjSpec) -> None:
             geom.contype = geom.conaffinity = 1
         else:
             geom.contype = geom.conaffinity = 0   # visual meshes and unnamed geoms: no collisions
+
+def build_g1_model(robot_xml) -> tuple[mujoco.MjModel, mujoco.MjData, list[str], list[str]]:
+    """Diego's simulatable G1 (walk_fixed.ipynb). Returns (model, data, joint_names, actuator_names).
+
+    data starts at the 'init_state' keyframe (knees bent) with derived quantities computed.
+    """
+    spec = mujoco.MjSpec.from_file(str(robot_xml))
+
+    apply_collision_settings(spec)
+    spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[5, 5, 0.1])
+
+    joint_names = hinge_joint_names(spec)
+    actuator_names = add_position_actuators(spec)
+    add_init_keyframe(spec, actuator_names)
+
+    spec.option.timestep = 0.005
+    spec.option.iterations = 10
+    spec.option.ls_iterations = 20
+    spec.option.ccd_iterations = 500
+
+    model = spec.compile()
+    data = mujoco.MjData(model)
+
+    mujoco.mj_resetDataKeyframe(model, data, model.key("init_state").id)   # sets qpos, qvel, ctrl only
+    mujoco.mj_forward(model, data)   # compute xpos, xmat, sensordata... for that state
+
+    return model, data, joint_names, actuator_names

@@ -29,7 +29,7 @@ Reference: `3p/2025-tfg-diego-lopez/pruebas/G1/walk_fixed.ipynb`.
   *Check:* 29 actuators with gains matching deploy.yaml, keyframe loads the pose.
   (Finding: with the soft policy gains the robot can't stand on its own; the policy balances it.)
 
-- [ ] **Day 4 — Ex 4: Observations and frames.**
+- [x] **Day 4 — Ex 4: Observations and frames.**
   IMU sensors (site frame), free-joint `qvel` frames, projected gravity.
   *Check:* known tilt gives the analytic projected gravity.
 
