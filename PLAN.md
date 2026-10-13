@@ -33,7 +33,7 @@ Reference: `3p/2025-tfg-diego-lopez/pruebas/G1/walk_fixed.ipynb`.
   IMU sensors (site frame), free-joint `qvel` frames, projected gravity.
   *Check:* known tilt gives the analytic projected gravity.
 
-- [ ] **Day 5 — Ex 5: Control loop + policy.**
+- [x] **Day 5 — Ex 5: Control loop + policy.**
   200 Hz physics, 50 Hz policy (decimation 4), action → joint targets,
   99-dim observation, ONNX inference.
   *Check:* zero-action policy holds pose; real policy walks.
