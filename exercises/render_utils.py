@@ -49,13 +49,14 @@ def record_gif(
     playback_fps: int | None = None,
     width: int = 640,
     height: int = 480,
-    label: str | None = None,
+    label: str | Callable[[mujoco.MjData], str] | None = None,
 ) -> int:
     """Simulate `duration` seconds from the current state and save a GIF.
 
     control(model, data), if given, runs before every mj_step (e.g. to set data.ctrl).
     playback_fps < capture_fps gives slow motion; defaults to real time.
-    label, if given, is drawn in the top-left corner of every frame.
+    label, if given, is drawn in the top-left corner of every frame; it can be a function of data
+    (e.g. to show the current command or time).
     Returns the number of frames saved.
     """
     playback_fps = playback_fps or capture_fps
@@ -74,7 +75,8 @@ def record_gif(
                 renderer.update_scene(data, camera=camera if camera is not None else -1)
                 frame = Image.fromarray(renderer.render())
                 if label:
-                    ImageDraw.Draw(frame).text((10, 10), label, fill="white", font=font)
+                    text = label(data) if callable(label) else label
+                    ImageDraw.Draw(frame).text((10, 10), text, fill="white", font=font)
                 frames.append(frame)
 
     frames[0].save(

@@ -38,7 +38,7 @@ Reference: `3p/2025-tfg-diego-lopez/pruebas/G1/walk_fixed.ipynb`.
   99-dim observation, ONNX inference.
   *Check:* zero-action policy holds pose; real policy walks.
 
-- [ ] **Day 6 — Validate.**
+- [x] **Day 6 — Validate.**
   Forward / backward / turning commands; zero command stands still.
   *Check:* 0.6 m/s command → ~3 m in 6 s without falling.
 

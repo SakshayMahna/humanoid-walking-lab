@@ -120,6 +120,13 @@ At deploy time all three use the nominal foot friction 0.6.
 4. The frame of the Gazebo `OdometryPublisher` twist (body vs world) is set by gz-sim source, which isn't in the repo.
    The policy expects body-frame velocity.
 
+5. **Dead zone in `walk.onnx`** (measured 2026-10-13, `exercises/06_validation/validate.py`): steady-state speed
+   is 0 for vx ≤ 0.3 and vy ≤ 0.3 m/s; vx 0.4 → 0.30, 0.5 → 0.43, 0.8 → 0.76 m/s; vy 0.5 → 0.43, 0.8 → 0.72 m/s.
+   Turning on the spot (wz alone, 0.3–0.8 rad/s) gives ≤ 0.05 rad/s, but [0.5, 0, 0.5] turns at 0.47 rad/s.
+   Identical with stale/fresh observations and Euler/implicitfast, so not caused by our replay settings.
+   mjlab 1.2.0's `velocity_command.py` has no small-command threshold. Diego's blog does not mention it.
+   Cause unverified; worth comparing with Unitree's policy.
+
 ## To do when switching to Unitree
 
 1. Robot XML → Unitree's `g1.xml` (or confirm differences don't matter).

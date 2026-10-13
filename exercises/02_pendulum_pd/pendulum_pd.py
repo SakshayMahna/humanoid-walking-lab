@@ -8,10 +8,10 @@ script_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(script_dir.parent))  # make exercises/render_utils.py importable
 from render_utils import make_camera, record_gif, render_image
 
-from pendulum import MOTOR, make_pd, metrics, pendulum_xml
+from pendulum import L, MOTOR, make_pd, metrics, pendulum_xml
 
 # Create and load a pendulum
-L = 0.5  # rod length (m)
+# L (rod length, 0.5 m) comes from pendulum.py
 xml = pendulum_xml(L)
 
 model = mujoco.MjModel.from_xml_string(xml)

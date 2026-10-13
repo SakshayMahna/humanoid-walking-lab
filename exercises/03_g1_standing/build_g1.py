@@ -9,8 +9,8 @@ repo_root = script_dir.parent.parent
 sys.path.insert(0, str(script_dir.parent))  # make exercises/render_utils.py importable
 from render_utils import make_camera, record_gif, render_image
 
-from g1_utils import (FOOT_PATTERN, add_init_keyframe, add_position_actuators, apply_collision_settings,
-                      hinge_joint_names)
+from g1_utils import (FOOT_PATTERN, add_floor, add_init_keyframe, add_position_actuators,
+                      apply_collision_settings, apply_solver_settings, hinge_joint_names)
 
 robot_xml = repo_root / "robot" / "g1.xml"
 
@@ -21,10 +21,9 @@ n_before = spec.compile().ngeom                  # compiling doesn't change the 
 # Collision settings (must come before the floor, which would otherwise be disabled)
 apply_collision_settings(spec)
 
-# Floor
-# Plane size = [half_x, half_y, grid spacing]. Default contype = conaffinity = 1, so it collides with
-# the robot's collision capsules (1/1) but not its visual meshes (0/0).
-spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[5, 5, 0.1])
+# Floor: plane size = [half_x, half_y, grid spacing]. Default contype = conaffinity = 1, so it collides
+# with the robot's collision capsules (1/1) but not its visual meshes (0/0).
+add_floor(spec)
 
 # Compile
 print("\n=== Model ===")
@@ -72,11 +71,8 @@ print("\n=== Actuators ===")
 actuator_names = add_position_actuators(spec)
 add_init_keyframe(spec, actuator_names)
 
-# Solver settings from Diego's walk_fixed.ipynb (integrator stays at MuJoCo's default, Euler)
-spec.option.timestep = 0.005     # 200 Hz physics; the policy runs every 4 steps (50 Hz)
-spec.option.iterations = 10
-spec.option.ls_iterations = 20
-spec.option.ccd_iterations = 500
+# Solver settings from Diego's walk_fixed.ipynb: dt 0.005, iterations 10/20, ccd 500, Euler
+apply_solver_settings(spec)
 
 model = spec.compile()   # recompile: the drop-test model has no actuators or keyframe
 data = mujoco.MjData(model)

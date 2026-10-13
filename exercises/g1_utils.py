@@ -148,6 +148,19 @@ def apply_collision_settings(spec: mujoco.MjSpec) -> None:
         else:
             geom.contype = geom.conaffinity = 0   # visual meshes and unnamed geoms: no collisions
 
+def add_floor(spec: mujoco.MjSpec) -> None:
+    """10 m x 10 m ground plane. Default contype = conaffinity = 1, so it collides with the collision geoms."""
+    spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[5, 5, 0.1])   # [half_x, half_y, grid]
+
+
+def apply_solver_settings(spec: mujoco.MjSpec) -> None:
+    """Solver settings from Diego's walk_fixed.ipynb (integrator stays at MuJoCo's default, Euler)."""
+    spec.option.timestep = 0.005     # 200 Hz physics; the policy runs every 4 steps (50 Hz)
+    spec.option.iterations = 10
+    spec.option.ls_iterations = 20
+    spec.option.ccd_iterations = 500
+
+
 def build_g1_model(robot_xml) -> tuple[mujoco.MjModel, mujoco.MjData, list[str], list[str]]:
     """Diego's simulatable G1 (walk_fixed.ipynb). Returns (model, data, joint_names, actuator_names).
 
@@ -155,17 +168,13 @@ def build_g1_model(robot_xml) -> tuple[mujoco.MjModel, mujoco.MjData, list[str],
     """
     spec = mujoco.MjSpec.from_file(str(robot_xml))
 
-    apply_collision_settings(spec)
-    spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[5, 5, 0.1])
+    apply_collision_settings(spec)   # before the floor, or the floor gets disabled
+    add_floor(spec)
 
     joint_names = hinge_joint_names(spec)
     actuator_names = add_position_actuators(spec)
     add_init_keyframe(spec, actuator_names)
-
-    spec.option.timestep = 0.005
-    spec.option.iterations = 10
-    spec.option.ls_iterations = 20
-    spec.option.ccd_iterations = 500
+    apply_solver_settings(spec)
 
     model = spec.compile()
     data = mujoco.MjData(model)
