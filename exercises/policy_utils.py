@@ -1,4 +1,4 @@
-"""Running an ONNX walking policy on the MuJoCo G1 (Exercise 5)."""
+"""Running an ONNX walking policy on the MuJoCo G1 (Exercise 5; Diego's policy by default)."""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ import mujoco
 import numpy as np
 import onnxruntime as ort
 
-from g1_utils import default_joint_pos
+from g1_utils import KNEES_BENT, default_joint_pos
 from observation_utils import make_observation
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -14,15 +14,20 @@ DIEGO_POLICY = REPO_ROOT / "3p" / "2025-tfg-diego-lopez" / "pruebas" / "G1" / "2
 DECIMATION = 4   # policy runs every 4 physics steps: 4 x 5 ms = 20 ms (50 Hz)
 
 
-def load_policy(policy_path, joint_names, actuator_names) -> dict:
-    """Load an ONNX policy plus everything needed to turn its actions into ctrl."""
+def load_policy(policy_path, joint_names, actuator_names, pose=KNEES_BENT, obs_fn=make_observation) -> dict:
+    """Load an ONNX policy plus everything needed to observe and to turn its actions into ctrl.
+
+    pose:   the default pose the policy was trained around (Diego: KNEES_BENT)
+    obs_fn: builds its observation, obs_fn(model, data, default_pos, last_action, command) (Diego: 99 numbers)
+    """
     session = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
     meta = session.get_modelmeta().custom_metadata_map   # name -> comma-separated string
     return {
         "session": session,
         "input_name": session.get_inputs()[0].name,
         "meta": meta,
-        "default_pos": default_joint_pos(joint_names),                                 # joint order
+        "obs_fn": obs_fn,
+        "default_pos": default_joint_pos(joint_names, pose),                           # joint order
         "action_scale": np.array([float(v) for v in meta["action_scale"].split(",")]),  # joint order
         # For each actuator, the index of its joint in joint order (not model.joint(name).id:
         # that counts the free joint as 0, so it would be off by one)
@@ -50,13 +55,47 @@ def make_policy_controller(policy, command, fresh_obs=False):
             if fresh_obs:
                 mujoco.mj_forward(model, data)
             cmd = np.asarray(command(data.time) if callable(command) else command, dtype=float)
-            obs = make_observation(model, data, policy["default_pos"], state["last_action"], cmd)
-            action = policy["session"].run(None, {policy["input_name"]: obs[None, :]})[0][0]   # (1,99) -> (1,29)
+            obs = policy["obs_fn"](model, data, policy["default_pos"], state["last_action"], cmd)
+            action = policy["session"].run(None, {policy["input_name"]: obs[None, :]})[0][0]   # (1,N) -> (1,29)
             data.ctrl[:] = action_to_ctrl(policy, action)   # no clipping (clipping made Diego's robot fall)
             state["last_action"] = action                   # raw output goes into the next observation
         state["step"] += 1                                  # ctrl holds its value for the other 3 physics steps
 
     return control
+
+
+def yaw(quat):
+    """Heading angle (rad) about the world z axis from a [w, x, y, z] quaternion."""
+    w, x, y, z = quat
+    return np.arctan2(2 * (w * z + x * y), 1 - 2 * (y**2 + z**2))
+
+
+def trajectory(model, data, policy, command, seconds, fresh_obs=False):
+    """Run the policy from the keyframe and record the base every physics step.
+
+    Returns arrays (per step): xy position (m), yaw (rad, unwrapped), pelvis height (m).
+    """
+    mujoco.mj_resetDataKeyframe(model, data, model.key("init_state").id)
+    mujoco.mj_forward(model, data)
+    control = make_policy_controller(policy, command, fresh_obs)
+    xy, yaws, heights = [], [], []
+    for _ in range(round(seconds / model.opt.timestep)):
+        control(model, data)
+        mujoco.mj_step(model, data)
+        xy.append(data.qpos[0:2].copy())
+        yaws.append(yaw(data.qpos[3:7]))
+        heights.append(data.qpos[2])
+    # yaw jumps from +pi to -pi when the robot turns past 180 deg; unwrap makes it continuous
+    return np.array(xy), np.unwrap(yaws), np.array(heights)
+
+
+def steady_state(model, data, policy, command, seconds=8.0, window=3.0):
+    """Average speed over the last `window` s of a run: (vx, vy) in world frame (m/s), wz (rad/s), min height."""
+    xy, yaws, heights = trajectory(model, data, policy, command, seconds)
+    n = round(window / model.opt.timestep)
+    v = (xy[-1] - xy[-n]) / window
+    wz = (yaws[-1] - yaws[-n]) / window
+    return v, wz, heights.min()
 
 
 def walk(model, data, policy, command, seconds=6.0, fresh_obs=False):

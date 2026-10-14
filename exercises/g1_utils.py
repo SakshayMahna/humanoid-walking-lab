@@ -115,13 +115,14 @@ def default_joint_pos(joint_names, pose=KNEES_BENT) -> np.ndarray:
     return joint_pos
 
 
-def add_init_keyframe(spec: mujoco.MjSpec, actuator_names: list[str]) -> None:
-    """Add an 'init_state' keyframe: knees-bent pose with matching actuator targets."""
+def add_init_keyframe(spec: mujoco.MjSpec, actuator_names: list[str], pose=KNEES_BENT,
+                      base_height=BASE_HEIGHT) -> None:
+    """Add an 'init_state' keyframe: the given pose (default knees bent) with matching actuator targets."""
     joints = hinge_joint_names(spec)
-    joint_pos = default_joint_pos(joints)
+    joint_pos = default_joint_pos(joints, pose)
 
     # qpos = base position (3) + base quaternion wxyz (4, upright) + joint angles in JOINT order
-    qpos = np.concatenate([[0.0, 0.0, BASE_HEIGHT], [1.0, 0.0, 0.0, 0.0], joint_pos])
+    qpos = np.concatenate([[0.0, 0.0, base_height], [1.0, 0.0, 0.0, 0.0], joint_pos])
 
     # ctrl = position targets in ACTUATOR order (differs from joint order!)
     target_by_name = dict(zip(joints, joint_pos))
@@ -153,18 +154,23 @@ def add_floor(spec: mujoco.MjSpec) -> None:
     spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[5, 5, 0.1])   # [half_x, half_y, grid]
 
 
-def apply_solver_settings(spec: mujoco.MjSpec) -> None:
-    """Solver settings from Diego's walk_fixed.ipynb (integrator stays at MuJoCo's default, Euler)."""
+def apply_solver_settings(spec: mujoco.MjSpec, integrator=mujoco.mjtIntegrator.mjINT_EULER,
+                          ccd_iterations=500) -> None:
+    """Solver settings. Defaults are Diego's walk_fixed.ipynb (Euler, ccd 500)."""
     spec.option.timestep = 0.005     # 200 Hz physics; the policy runs every 4 steps (50 Hz)
     spec.option.iterations = 10
     spec.option.ls_iterations = 20
-    spec.option.ccd_iterations = 500
+    spec.option.integrator = integrator
+    spec.option.ccd_iterations = ccd_iterations
 
 
-def build_g1_model(robot_xml) -> tuple[mujoco.MjModel, mujoco.MjData, list[str], list[str]]:
-    """Diego's simulatable G1 (walk_fixed.ipynb). Returns (model, data, joint_names, actuator_names).
+def build_g1_model(robot_xml, pose=KNEES_BENT, base_height=BASE_HEIGHT,
+                   integrator=mujoco.mjtIntegrator.mjINT_EULER, ccd_iterations=500
+                   ) -> tuple[mujoco.MjModel, mujoco.MjData, list[str], list[str]]:
+    """Simulatable G1. Returns (model, data, joint_names, actuator_names).
 
-    data starts at the 'init_state' keyframe (knees bent) with derived quantities computed.
+    Defaults reproduce Diego's walk_fixed.ipynb (knees-bent pose at 0.76 m, Euler, ccd 500).
+    data starts at the 'init_state' keyframe with derived quantities computed.
     """
     spec = mujoco.MjSpec.from_file(str(robot_xml))
 
@@ -173,8 +179,8 @@ def build_g1_model(robot_xml) -> tuple[mujoco.MjModel, mujoco.MjData, list[str],
 
     joint_names = hinge_joint_names(spec)
     actuator_names = add_position_actuators(spec)
-    add_init_keyframe(spec, actuator_names)
-    apply_solver_settings(spec)
+    add_init_keyframe(spec, actuator_names, pose, base_height)
+    apply_solver_settings(spec, integrator, ccd_iterations)
 
     model = spec.compile()
     data = mujoco.MjData(model)

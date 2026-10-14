@@ -11,3 +11,7 @@ __pycache__/
 
 # MuJoCo warning log (written when a simulation goes unstable)
 MUJOCO_LOG.TXT
+
+# Exercise outputs (images/GIFs): regenerate by running the exercise scripts
+exercises/**/*.gif
+exercises/**/*.png

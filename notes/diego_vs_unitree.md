@@ -125,7 +125,13 @@ At deploy time all three use the nominal foot friction 0.6.
    Turning on the spot (wz alone, 0.3–0.8 rad/s) gives ≤ 0.05 rad/s, but [0.5, 0, 0.5] turns at 0.47 rad/s.
    Identical with stale/fresh observations and Euler/implicitfast, so not caused by our replay settings.
    mjlab 1.2.0's `velocity_command.py` has no small-command threshold. Diego's blog does not mention it.
-   Cause unverified; worth comparing with Unitree's policy.
+   **Comparison with Unitree's policy** (2026-10-14, `exercises/07_unitree/unitree.py`, its own XML/home pose/
+   implicitfast): no dead zone. vx 0.2 → 0.22, 0.3 → 0.31 m/s; vy 0.3 → 0.24 m/s; wz alone 0.3/0.5/0.8 →
+   0.34/0.53/0.81 rad/s. **Gait-clock ablation** on Unitree's policy: with the phase forced to [0, 0] it
+   reproduces Diego's dead zone (turn 0.8 → 0.02 rad/s, vx 0.3 → 0, vy 0.3 → 0, while vx 0.6 still walks at
+   0.54); with the phase frozen at [0, 1] it overshoots and falls when turning. So in Unitree's policy the
+   ticking gait clock is what makes it step at small commands. Diego's policy has no clock and behaves like
+   Unitree's without one, which strongly suggests the same cause, but that is not proven for Diego's training.
 
 ## To do when switching to Unitree
 

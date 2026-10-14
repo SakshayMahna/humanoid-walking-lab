@@ -8,7 +8,7 @@ script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent.parent
 sys.path.insert(0, str(script_dir.parent))  # make exercises/*_utils.py importable
 from g1_utils import build_g1_model
-from policy_utils import DIEGO_POLICY, load_policy, make_policy_controller, walk
+from policy_utils import DIEGO_POLICY, load_policy, make_policy_controller, trajectory
 from render_utils import make_camera, record_gif
 
 model, data, joint_names, actuator_names = build_g1_model(repo_root / "robot" / "g1.xml")
@@ -19,29 +19,9 @@ policy = load_policy(DIEGO_POLICY, joint_names, actuator_names)
 print("\n=== Part 1: Command table ===")
 
 
-def yaw(quat):
-    """Heading angle (rad) about the world z axis from a [w, x, y, z] quaternion."""
-    w, x, y, z = quat
-    return np.arctan2(2 * (w * z + x * y), 1 - 2 * (y**2 + z**2))
-
-
 def run(command, seconds):
-    """Run the policy from the keyframe and record the base trajectory every physics step.
-
-    Returns arrays (per step): xy position (m), yaw (rad, unwrapped), pelvis height (m).
-    """
-    mujoco.mj_resetDataKeyframe(model, data, model.key("init_state").id)
-    mujoco.mj_forward(model, data)
-    control = make_policy_controller(policy, command)
-    xy, yaws, heights = [], [], []
-    for _ in range(round(seconds / model.opt.timestep)):
-        control(model, data)
-        mujoco.mj_step(model, data)
-        xy.append(data.qpos[0:2].copy())
-        yaws.append(yaw(data.qpos[3:7]))
-        heights.append(data.qpos[2])
-    # yaw jumps from +pi to -pi when the robot turns past 180 deg; unwrap makes it continuous
-    return np.array(xy), np.unwrap(yaws), np.array(heights)
+    """xy, yaw (unwrapped), pelvis height per physics step; see policy_utils.trajectory."""
+    return trajectory(model, data, policy, command, seconds)
 
 
 SECONDS = 5.0
