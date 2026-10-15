@@ -236,6 +236,19 @@ def robot_gifs():
         out[0].save(path, save_all=True, append_images=out[1:], duration=1000 // fps, loop=0, optimize=True)
         print(f"saved {name}: {len(out)} frames, {path.stat().st_size / 1e6:.2f} MB")
 
+    # 0. Setup: motors alone vs motors + policy (zero command, standing)
+    def hold_panel(policy, label, seconds=4.0):
+        cam = make_camera(lookat=[0.1, 0, 0.45], distance=2.6, azimuth=125, elevation=-12)
+        mujoco.mj_resetDataKeyframe(d_model, d_data, d_model.key("init_state").id)   # ctrl = starting pose
+        mujoco.mj_forward(d_model, d_data)
+        control = make_policy_controller(policy, np.zeros(3)) if policy else None
+        return record_frames(d_model, d_data, seconds, camera=cam, control=control,
+                             capture_fps=12, width=480, height=360, label=label)
+
+    save(side_by_side([hold_panel(None, "motors only: hold the starting pose"),
+                       hold_panel(diego, "motors + policy: command = stand still")]),
+         "stand_vs_policy.gif", "Without the policy the G1 can't stand. With it, it balances.")
+
     # 1. It walks
     save(panel(d_model, d_data, diego, [0.6, 0, 0], 6.0, "command: 0.6 m/s forward", 640, 400),
          "walk_forward.gif", "Diego's policy in my MuJoCo setup: 3.0 m in 6 s")
