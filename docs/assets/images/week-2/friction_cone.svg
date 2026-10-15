@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" font-family="Helvetica, Arial, sans-serif" font-size="15">
+  <rect width="900" height="420" rx="10" fill="#12141f"/>
+  <defs>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#36a2eb"/></marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4bc0a0"/></marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff6384"/></marker>
+  </defs>
+
+  <!-- (a) side view -->
+  <text x="40" y="38" fill="#ebebf5" font-size="18">(a) Friction cone, side view</text>
+  <!-- floor and foot -->
+  <rect x="60" y="340" width="360" height="8" fill="#3a3f5c"/>
+  <rect x="200" y="318" width="80" height="22" rx="4" fill="#6b7194"/>
+  <text x="240" y="370" fill="#9a9fc0" text-anchor="middle">foot on the floor</text>
+  <!-- cone: half-angle atan(0.6) = 31 deg, height 220 -> half-width 132 -->
+  <polygon points="240,318 108,98 372,98" fill="#36a2eb" fill-opacity="0.12" stroke="#36a2eb" stroke-dasharray="6 5"/>
+  <!-- normal force -->
+  <line x1="240" y1="318" x2="240" y2="110" stroke="#9a9fc0" stroke-width="1.5" stroke-dasharray="3 4"/>
+  <!-- allowed force (inside) -->
+  <line x1="240" y1="318" x2="300" y2="140" stroke="#4bc0a0" stroke-width="4" marker-end="url(#arrow-green)"/>
+  <text x="306" y="150" fill="#4bc0a0">inside: sticks</text>
+  <!-- slipping force (outside) -->
+  <line x1="240" y1="318" x2="410" y2="230" stroke="#ff6384" stroke-width="4" marker-end="url(#arrow-red)"/>
+  <text x="318" y="300" fill="#ff6384">outside: slips</text>
+  <!-- angle label -->
+  <path d="M240,258 A60,60 0 0,1 271,267" fill="none" stroke="#ffce56" stroke-width="2"/>
+  <text x="252" y="245" fill="#ffce56">31°</text>
+  <text x="60" y="86" fill="#ebebf5">|F<tspan baseline-shift="sub" font-size="11">friction</tspan>| ≤ μ · F<tspan baseline-shift="sub" font-size="11">normal</tspan></text>
+  <text x="60" y="398" fill="#9a9fc0">μ = 0.6 → half-angle = atan(0.6) ≈ 31°</text>
+
+  <!-- divider -->
+  <line x1="460" y1="30" x2="460" y2="390" stroke="#2a2e45" stroke-width="2"/>
+
+  <!-- (b) top view -->
+  <text x="490" y="38" fill="#ebebf5" font-size="18">(b) Seen from above: exact vs pyramid</text>
+  <!-- axes -->
+  <line x1="510" y1="220" x2="830" y2="220" stroke="#3a3f5c" stroke-width="1.5"/>
+  <line x1="670" y1="70" x2="670" y2="370" stroke="#3a3f5c" stroke-width="1.5"/>
+  <text x="836" y="225" fill="#9a9fc0">x</text>
+  <text x="664" y="64" fill="#9a9fc0">y</text>
+  <!-- exact (elliptic) limit: circle radius 130 = mu * F_normal -->
+  <circle cx="670" cy="220" r="130" fill="#36a2eb" fill-opacity="0.12" stroke="#36a2eb" stroke-width="3"/>
+  <!-- pyramid (condim 3: 4 edges, n ± mu t1, n ± mu t2) -> diamond with vertices on the circle -->
+  <polygon points="800,220 670,90 540,220 670,350" fill="#ffce56" fill-opacity="0.15" stroke="#ffce56" stroke-width="3"/>
+  <!-- diagonal comparison -->
+  <line x1="670" y1="220" x2="762" y2="128" stroke="#ebebf5" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <circle cx="762" cy="128" r="5" fill="#36a2eb"/>
+  <circle cx="735" cy="155" r="5" fill="#ffce56"/>
+  <text x="768" y="122" fill="#36a2eb">exact: μF</text>
+  <text x="616" y="158" fill="#ffce56" font-size="13">pyramid: 71 %</text>
+  <!-- legend -->
+  <rect x="500" y="384" width="14" height="14" fill="#36a2eb"/>
+  <text x="520" y="396" fill="#ebebf5">elliptic cone (exact)</text>
+  <rect x="680" y="384" width="14" height="14" fill="#ffce56"/>
+  <text x="700" y="396" fill="#ebebf5">pyramid (MuJoCo default)</text>
+</svg>

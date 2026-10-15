@@ -8,28 +8,14 @@ script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent.parent
 sys.path.insert(0, str(script_dir.parent))  # make exercises/*_utils.py importable
 from g1_utils import build_g1_model, default_joint_pos
-from observation_utils import projected_gravity, read_sensor
 from policy_utils import DIEGO_POLICY, load_policy, make_policy_controller, steady_state, trajectory, walk
 from render_utils import make_camera, record_frames, record_gif, render_image, save_gif, side_by_side
-
-UNITREE_REPO = repo_root / "3p" / "unitree_rl_mjlab"
-UNITREE_XML = UNITREE_REPO / "src" / "assets" / "robots" / "unitree_g1" / "xmls" / "g1.xml"
-UNITREE_POLICY = UNITREE_REPO / "deploy" / "robots" / "g1" / "config" / "policy" / "velocity" / "v0" / "exported" / "policy.onnx"
+from unitree_utils import (HOME, HOME_HEIGHT, UNITREE_OBS_DIM, UNITREE_OBS_LAYOUT, UNITREE_POLICY,
+                           UNITREE_XML, gait_phase, make_unitree_observation)
 
 # Part A: Unitree's model (home pose, implicitfast, ccd 50)
 print("\n=== Part A: Unitree model ===")
-# HOME_KEYFRAME in Unitree's g1_constants.py. Joints not listed stay at 0.
-HOME_HEIGHT = 0.8   # pelvis height (m)
-HOME = {
-    ".*_hip_pitch_joint": -0.1,
-    ".*_knee_joint": 0.3,
-    ".*_ankle_pitch_joint": -0.2,
-    ".*_elbow_joint": 0.87,
-    "left_shoulder_roll_joint": 0.18,
-    "left_shoulder_pitch_joint": 0.35,
-    "right_shoulder_roll_joint": -0.18,
-    "right_shoulder_pitch_joint": 0.35,
-}
+# HOME pose (HOME_KEYFRAME in Unitree's g1_constants.py) lives in unitree_utils.py
 
 model, data, joint_names, actuator_names = build_g1_model(
     UNITREE_XML, pose=HOME, base_height=HOME_HEIGHT,
@@ -58,20 +44,7 @@ print("  saved init_pose.png")
 
 # Part B: Gait phase
 print("\n=== Part B: Gait phase ===")
-GAIT_PERIOD = 0.6   # s per stride (Unitree's phase observation, period=0.6)
-
-
-def gait_phase(t, command, period=GAIT_PERIOD) -> np.ndarray:
-    """Unitree's gait clock: [sin 2πφ, cos 2πφ] with φ = (t mod period) / period; [0, 0] when standing.
-
-    t is the time since reset (training: episode steps x 0.02 s). sin/cos instead of φ itself so the
-    clock has no jump when φ wraps from 1 back to 0. ‖command‖ includes the turn rate wz.
-    """
-    phi = (t % period) / period
-    phase = np.array([np.sin(2 * np.pi * phi), np.cos(2 * np.pi * phi)])
-    if np.linalg.norm(command) < 0.1:   # stand-still command: clock off
-        phase = np.zeros(2)
-    return phase
+# gait_phase lives in unitree_utils.py: [sin 2πφ, cos 2πφ], φ = (t mod 0.6) / 0.6; [0, 0] if |command| < 0.1
 
 
 walk_cmd = [0.5, 0.0, 0.0]
@@ -93,29 +66,8 @@ for name, t, cmd, expected in cases:
 
 # Part C: 98-number observation
 print("\n=== Part C: Observation ===")
-# Layout from Unitree's policy.onnx metadata (observation_names): name -> size
-UNITREE_OBS_LAYOUT = [("base_ang_vel", 3), ("projected_gravity", 3), ("command", 3), ("phase", 2),
-                      ("joint_pos", 29), ("joint_vel", 29), ("actions", 29)]
-UNITREE_OBS_DIM = sum(size for _, size in UNITREE_OBS_LAYOUT)   # 98
-
-
-def make_unitree_observation(model: mujoco.MjModel, data: mujoco.MjData, default_pos, last_action, command) -> np.ndarray:
-    """The 98 numbers Unitree's policy expects, in its order. Joint terms are in joint order (qpos[7:], qvel[6:]).
-
-    vs Diego's 99: no base_lin_vel, command moved to 3rd, gait phase added after it.
-    """
-    obs = np.concatenate([
-        read_sensor(model, data, "imu_ang_vel"),   # angular velocity, pelvis frame
-        projected_gravity(model, data),            # "down" in the pelvis frame
-        command,                                   # [vx, vy, wz]
-        gait_phase(data.time, command),            # [sin, cos] stride clock; [0, 0] when standing
-        data.qpos[7:] - default_pos,               # joint angles relative to the default (home) pose
-        data.qvel[6:],                             # joint velocities
-        last_action,                               # previous raw policy output
-    ]).astype(np.float32)                          # ONNX expects float32
-    assert obs.shape == (UNITREE_OBS_DIM,), f"observation has {obs.shape[0]} numbers, expected {UNITREE_OBS_DIM}"
-    return obs
-
+# UNITREE_OBS_LAYOUT and make_unitree_observation live in unitree_utils.py
+# (ang_vel, gravity, command, phase, joint_pos, joint_vel, actions = 98 numbers)
 
 default_pos = default_joint_pos(joint_names, HOME)   # HOME, not Diego's KNEES_BENT
 command = np.array([0.5, 0.0, 0.0])

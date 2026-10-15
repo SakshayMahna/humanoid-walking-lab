@@ -165,12 +165,13 @@ def apply_solver_settings(spec: mujoco.MjSpec, integrator=mujoco.mjtIntegrator.m
 
 
 def build_g1_model(robot_xml, pose=KNEES_BENT, base_height=BASE_HEIGHT,
-                   integrator=mujoco.mjtIntegrator.mjINT_EULER, ccd_iterations=500
+                   integrator=mujoco.mjtIntegrator.mjINT_EULER, ccd_iterations=500, decorate=None
                    ) -> tuple[mujoco.MjModel, mujoco.MjData, list[str], list[str]]:
     """Simulatable G1. Returns (model, data, joint_names, actuator_names).
 
     Defaults reproduce Diego's walk_fixed.ipynb (knees-bent pose at 0.76 m, Euler, ccd 500).
     data starts at the 'init_state' keyframe with derived quantities computed.
+    decorate(spec), if given, runs just before compiling (e.g. visual-only scenery for videos).
     """
     spec = mujoco.MjSpec.from_file(str(robot_xml))
 
@@ -181,6 +182,8 @@ def build_g1_model(robot_xml, pose=KNEES_BENT, base_height=BASE_HEIGHT,
     actuator_names = add_position_actuators(spec)
     add_init_keyframe(spec, actuator_names, pose, base_height)
     apply_solver_settings(spec, integrator, ccd_iterations)
+    if decorate is not None:
+        decorate(spec)
 
     model = spec.compile()
     data = mujoco.MjData(model)

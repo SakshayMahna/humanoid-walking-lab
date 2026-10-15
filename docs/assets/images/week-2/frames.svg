@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" font-family="Helvetica, Arial, sans-serif" font-size="14">
+  <rect width="900" height="470" rx="10" fill="#12141f"/>
+  <defs>
+    <marker id="a-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9a9fc0"/></marker>
+    <marker id="a-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#36a2eb"/></marker>
+    <marker id="a-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff6384"/></marker>
+    <marker id="a-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffce56"/></marker>
+    <marker id="a-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4bc0a0"/></marker>
+  </defs>
+
+  <!-- ===== (a) frames and IMU ===== -->
+  <text x="30" y="34" fill="#ebebf5" font-size="17">(a) World frame vs pelvis frame (side view)</text>
+  <!-- world axes -->
+  <line x1="50" y1="330" x2="140" y2="330" stroke="#9a9fc0" stroke-width="2.5" marker-end="url(#a-grey)"/>
+  <line x1="50" y1="330" x2="50" y2="240" stroke="#9a9fc0" stroke-width="2.5" marker-end="url(#a-grey)"/>
+  <text x="146" y="335" fill="#9a9fc0">x world</text>
+  <text x="32" y="232" fill="#9a9fc0">z world</text>
+  <!-- pelvis block, pitched 30 deg nose-down, origin O = (250, 190) -->
+  <polygon points="308,189 278,241 192,191 222,139" fill="#6b7194" fill-opacity="0.45" stroke="#9a9fc0"/>
+  <text x="196" y="132" fill="#ebebf5">pelvis</text>
+  <!-- pelvis axes -->
+  <line x1="250" y1="190" x2="345" y2="245" stroke="#36a2eb" stroke-width="3" marker-end="url(#a-blue)"/>
+  <line x1="250" y1="190" x2="305" y2="95" stroke="#36a2eb" stroke-width="3" marker-end="url(#a-blue)"/>
+  <text x="350" y="256" fill="#36a2eb">x pelvis</text>
+  <text x="310" y="92" fill="#36a2eb">z pelvis</text>
+  <!-- IMU offset r -->
+  <line x1="250" y1="190" x2="250" y2="268" stroke="#ffce56" stroke-width="2.5" marker-end="url(#a-yellow)"/>
+  <circle cx="250" cy="272" r="7" fill="#ffce56"/>
+  <text x="262" y="278" fill="#ffce56">IMU</text>
+  <text x="212" y="236" fill="#ffce56">r</text>
+  <!-- rotation omega about the pelvis origin -->
+  <path d="M212,178 A40,40 0 1,1 238,228" fill="none" stroke="#ff6384" stroke-width="2.5" marker-end="url(#a-red)"/>
+  <text x="168" y="170" fill="#ff6384">ω</text>
+  <circle cx="250" cy="190" r="4" fill="#ebebf5"/>
+  <!-- captions -->
+  <text x="30" y="372" fill="#ebebf5">qvel[0:3]: pelvis-origin velocity in <tspan fill="#9a9fc0" font-weight="bold">WORLD</tspan> axes</text>
+  <text x="30" y="396" fill="#ebebf5">qvel[3:6] = gyro: angular velocity ω in <tspan fill="#36a2eb" font-weight="bold">PELVIS</tspan> axes</text>
+  <text x="30" y="420" fill="#ebebf5">velocimeter = Rᵀ·v + <tspan fill="#ff6384">ω</tspan> × <tspan fill="#ffce56">r</tspan>  (IMU point, pelvis axes)</text>
+
+  <!-- divider -->
+  <line x1="450" y1="24" x2="450" y2="446" stroke="#2a2e45" stroke-width="2"/>
+
+  <!-- ===== (b) projected gravity ===== -->
+  <text x="470" y="34" fill="#ebebf5" font-size="17">(b) Projected gravity, pelvis pitched 30°</text>
+  <!-- pelvis block at O2 = (660, 170) -->
+  <polygon points="718,169 688,221 602,171 632,119" fill="#6b7194" fill-opacity="0.45" stroke="#9a9fc0"/>
+  <!-- pelvis axes -->
+  <line x1="660" y1="170" x2="790" y2="245" stroke="#36a2eb" stroke-width="2" stroke-opacity="0.7" marker-end="url(#a-blue)"/>
+  <line x1="660" y1="170" x2="718" y2="70" stroke="#36a2eb" stroke-width="2" stroke-opacity="0.7" marker-end="url(#a-blue)"/>
+  <text x="795" y="257" fill="#36a2eb">x pelvis</text>
+  <text x="724" y="72" fill="#36a2eb">z pelvis</text>
+  <!-- gravity straight down (world) -->
+  <line x1="660" y1="170" x2="660" y2="320" stroke="#ff6384" stroke-width="4" marker-end="url(#a-red)"/>
+  <text x="600" y="345" fill="#ff6384">gravity (world down)</text>
+  <!-- components along pelvis axes: +0.5 along x, -0.87 along z -->
+  <line x1="660" y1="170" x2="725" y2="207" stroke="#4bc0a0" stroke-width="3.5" marker-end="url(#a-green)"/>
+  <line x1="660" y1="170" x2="595" y2="283" stroke="#4bc0a0" stroke-width="3.5" marker-end="url(#a-green)"/>
+  <line x1="725" y1="207" x2="660" y2="320" stroke="#4bc0a0" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="595" y1="283" x2="660" y2="320" stroke="#4bc0a0" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <text x="732" y="205" fill="#4bc0a0">+0.5 forward</text>
+  <text x="496" y="278" fill="#4bc0a0">−0.87 along z</text>
+  <circle cx="660" cy="170" r="4" fill="#ebebf5"/>
+  <!-- result -->
+  <text x="470" y="396" fill="#ebebf5">projected gravity = Rᵀ · [0, 0, −1] = <tspan fill="#4bc0a0">[ 0.5, 0, −0.87 ]</tspan></text>
+  <text x="470" y="420" fill="#9a9fc0">upright: [0, 0, −1]. Leaning forward, "down" leans forward too:</text>
+  <text x="470" y="440" fill="#9a9fc0">this is how the policy knows which way it is tipping.</text>
+</svg>
