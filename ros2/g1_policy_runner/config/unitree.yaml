@@ -1,0 +1,5 @@
+# Unitree's velocity policy from unitree_rl_mjlab (exercise 7).
+policy_runner:
+  ros__parameters:
+    policy_file: /home/ubuntu/humanoid-walking-lab/3p/unitree_rl_mjlab/deploy/robots/g1/config/policy/velocity/v0/exported/policy.onnx
+    gait_period: 0.6   # s per stride (deploy.yaml: gait_phase period 0.6); not in the ONNX metadata

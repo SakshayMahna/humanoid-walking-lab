@@ -1,0 +1,218 @@
+# Gazebo experiments: running the MuJoCo-trained policies in Gazebo
+
+Goal: run Diego's `walk.onnx` and Unitree's `policy.onnx` in Diego's Gazebo setup (`g1_sim`), compare them with
+MuJoCo, and find what has to match for them to behave the same. The underlying research question (why the
+simulators differ) lives in [sim2sim_mujoco_vs_gazebo.md](sim2sim_mujoco_vs_gazebo.md).
+
+All numbers below come from runs on 2026-10-16 (Docker on an Apple Silicon Mac, Gazebo RTF ≈ 0.9).
+
+---
+
+## 1. Setup
+
+| Piece | What it is |
+|---|---|
+| `docker/Dockerfile`, `docker/compose.yaml` | `tiryoh/ros2-desktop-vnc:jazzy` (Ubuntu 24.04, ROS 2 Jazzy, ros_gz 1.0.24 = Gazebo Harmonic / gz-sim 8) + ONNX Runtime 1.17.1 aarch64. Mounts Diego's repo and `ros2/` into `~/ros2_ws/src`, and the whole lab repo at `~/humanoid-walking-lab` |
+| `ros2/g1_policy_runner` | Our node: runs any mjlab-exported velocity policy; reads joint order, default pose, action scale and observation layout from the ONNX metadata |
+| `gazebo/run_scenario.sh` | Headless run (no GUI) of one scenario → `recordings/NAME.csv` |
+| `gazebo/scenario_logger.py` | Publishes the command **on simulation time** and logs pelvis odometry (+ the command seen on `/cmd_vel`) at 20 Hz |
+| `gazebo/record.sh` (+ `record_inside.sh`, `gui_record.config`) | Same scenario with the Gazebo GUI, screen-recorded → `recordings/NAME.mp4/.gif` |
+| `gazebo/make_gain_variants.py` | Writes modified copies of Diego's robot SDF with different joint controllers |
+| `gazebo/gain_experiment.sh` | Runs all controller variants × both policies × repeats |
+| `gazebo/summarize_runs.py` | Metrics table from the CSVs |
+| `exercises/08_gazebo_reference/mujoco_runs.py`, `exercises/08_gazebo_reference/odometry_dry_run.py` | MuJoCo reference runs in the same CSV format |
+
+```bash
+docker compose -f docker/compose.yaml up -d --build
+# headless, logged:   VX VY WZ SECONDS STAND NAME "launch args"
+docker compose -f docker/compose.yaml exec -u ubuntu ros bash ~/humanoid-walking-lab/gazebo/run_scenario.sh \
+    0.5 0 0 24 4 test "policy:=unitree clock:=wall"
+# video:
+gazebo/record.sh 0.5 0 0 24 4 test "policy:=walk clock:=sim"
+# controller variants (generate the SDFs on the Mac first: the container has no MuJoCo/numpy)
+.venv/bin/python gazebo/make_gain_variants.py
+docker compose -f docker/compose.yaml exec -u ubuntu ros bash ~/humanoid-walking-lab/gazebo/gain_experiment.sh 2 wall
+.venv/bin/python gazebo/summarize_runs.py recordings/*.csv
+```
+
+Launch arguments of `ros2 launch g1_policy_runner policy.launch.py`: `policy:=walk|unitree`, `clock:=wall|sim`,
+`policy_period:=0.02`, `gui:=true|false`, `robot_model:=g1_free_roam|<path to model.sdf>`, `spawn_z:=0.80`.
+
+**Scenario used everywhere below:** zero command for 4 s (standing), then `vx = 0.5 m/s` for 20 s.
+
+**Metrics** (`summarize_runs.py`): `stand_rot` / `stand_move` = rotation (deg) / displacement (m) during the
+zero-command phase; `vx`, `vy` = mean pelvis-frame velocity from 4 s after the command starts; `turn` = slope of
+the heading (deg/s); `wander` = std of the heading around that slope (deg).
+
+---
+
+## 2. What has to match MuJoCo, and how the code does it
+
+### 2a. In the policy node (done, `ros2/g1_policy_runner/src/policy_runner.cpp`)
+
+| Training (mjlab / MuJoCo) | Our node | Code |
+|---|---|---|
+| Joint order = metadata `joint_names` (≠ Gazebo's `/joint_states` order) | Reorder by name, `find()` not `operator[]` | `joint_state_callback` (index `k` = Gazebo, `i` = policy) |
+| Joint positions relative to `default_joint_pos` | `position[k] - default_pos_[i]` | `joint_state_callback` |
+| Gravity in the pelvis frame: Rᵀ[0,0,−1] | tf2 quaternion (x,y,z,w order!) → `R.transpose() * (0,0,-1)` | `imu_callback` |
+| Angular velocity, pelvis frame | IMU `angular_velocity` | `imu_callback` |
+| Linear velocity of the `imu_in_pelvis` point, pelvis frame (walk.onnx only) | Odometry twist (see §4) | `odometry_callback` |
+| Observation order = metadata `observation_names` | Loop over the names, throw on unknown | `build_observation` |
+| Unitree gait phase [sin, cos], off when ‖cmd‖ < 0.1 | t = `steps_ * policy_period_` | `gait_phase` |
+| Target = default + scale · action, **no clipping** | Published per joint on `/g1/cmd_pos/<joint>` | `policy_step` |
+| Previous **raw** action fed back | `last_action_ = action` | `policy_step` |
+| One action per joint | Startup check (rejects `walk_free_elbows.onnx`: 27 actions) | `load_metadata` |
+| Policy every 20 ms of **simulated** time | `clock:=sim` → timer on `/clock`; `clock:=wall` = Diego's real-time timer | constructor (timer) |
+
+The timer line:
+
+```cpp
+timer_ = create_wall_timer(period, std::bind(&PolicyRunner::policy_step, this));   // clock:=wall
+timer_ = create_timer(period, std::bind(&PolicyRunner::policy_step, this));        // clock:=sim
+```
+
+- `period` is `policy_period_` (0.02 s) converted to `std::chrono::nanoseconds`.
+- `policy_step` is a member function, so it needs an object to run on. `std::bind(&PolicyRunner::policy_step, this)`
+  makes a callable with no arguments that calls `this->policy_step()`. (Same as the lambda
+  `[this]() { policy_step(); }`.) The timer calls it every period.
+- `create_wall_timer` counts real time. `create_timer` counts the node's clock; the launch file sets
+  `use_sim_time:=true` for `clock:=sim`, so that clock is Gazebo's `/clock`.
+
+### 2b. In the Gazebo robot (not done in Diego's setup; tested with model variants, §3)
+
+| MuJoCo (training) | Diego's Gazebo model (Luis's) | Variant tested |
+|---|---|---|
+| kp, kd from the motor model (= ONNX `joint_stiffness/damping`) | Different values (knee ×1.5, see sim2sim notes) | `mj`: metadata values |
+| Torque limits: ankle roll 50 N·m | ankle roll 10 N·m | `mj`: 50 N·m |
+| Damping on joint velocity: τ = kp·(target − q) − kd·q̇ | gz PID: kd · Δerror/dt → kick every time the target changes (every 20 ms) | `mj_vel_d`: `d_gain` 0 + joint `<damping>` kd |
+| Armature (reflected rotor inertia) | none | not tested yet |
+| Foot friction 0.6, MuJoCo soft contacts | ground mu 1.0, DART + ODE collision | not tested yet |
+| Physics step 5 ms, policy synchronous | 1 ms, policy asynchronous (ROS topics) | not tested yet |
+
+**How "D on velocity" is implemented** (`gazebo/make_gain_variants.py`):
+
+1. In each `JointPositionController` plugin: `p_gain` = metadata kp, **`d_gain` = 0**, `cmd_min/max` = motor limit.
+   The controller is now a pure P controller: τ = kp · (target − q). No derivative of the error → no kick.
+2. In each joint's `<axis><dynamics>`: add **`<damping>kd</damping>`**. That is SDF's viscous joint damping,
+   τ = −kd · q̇, applied by the physics engine on the joint's own velocity.
+3. Sum: τ = kp·(target − q) − kd·q̇, the same law as MuJoCo's position actuator (`gainprm = kp`,
+   `biasprm = [0, −kp, −kd]`).
+
+Remaining difference: in MuJoCo the whole actuator force (P and D) is clipped to the torque limit; here only the
+P part is clipped (`cmd_max`), the joint damping is not.
+
+---
+
+## 3. Results: controller variants (wall clock, 2 runs each)
+
+`gazebo/gain_experiment.sh 2 wall`, command timed on simulation time (§5).
+
+| Policy | Setup | stand_rot (°) | stand_move (m) | vx (cmd 0.5) | vy | turn (°/s) | wander (°) |
+|---|---|---|---|---|---|---|---|
+| Unitree | **MuJoCo** | 0.7 | 0.01 | 0.50 | −0.01 | +0.72 | 0.39 |
+| Unitree | Luis's gains | 10.8 ± 1.1 | 0.40 ± 0.16 | 0.57 | 0.03 | +2.6 ± 2.6 | 6.7 ± 0.8 |
+| Unitree | `mj` gains | 8.5 ± 3.2 | 0.73 ± 0.33 | 0.53 | 0.01 | +0.9 ± 1.2 | 8.1 ± 1.0 |
+| Unitree | `mj_vel_d` | 16.8 ± 0.2 | 1.02 ± 0.00 | **0.50** | −0.02 | **+1.01 ± 0.04** | **0.49** |
+| walk | **MuJoCo** | 0.5 | 0.00 | 0.43 | −0.01 | +0.14 | 0.18 |
+| walk | Luis's gains | 11.9 ± 4.3 | 0.22 ± 0.10 | 0.60 | −0.06 | −2.5 ± 2.1 | 3.5 ± 1.6 |
+| walk | `mj` gains | 5.5 ± 0.7 | 0.24 ± 0.07 | 0.57 | −0.03 | +1.4 ± 0.1 | 1.4 ± 0.1 |
+| walk | `mj_vel_d` | 4.9 ± 0.8 | 1.21 ± 0.04 | 0.73 | −0.24 | −2.2 ± 0.0 | 1.6 ± 0.1 |
+
+Findings:
+
+- **Unitree walking matches MuJoCo only with the D term on velocity.** Gains alone don't fix the heading wander
+  (6.7° → 8.1°); moving D to the velocity does (0.49° vs MuJoCo 0.39°), and speed and turn rate also match.
+  The run-to-run spread also collapses (± 0.04°/s).
+- **Standing (zero command) is unstable in Gazebo in every setup**; MuJoCo stands still. Checked with
+  `seen_vx` (the command actually on `/cmd_vel`): in `mj_vel_d` Unitree starts walking at ≈ 0.6 m/s around
+  t = 2 s while the command is 0. **Open:** why. Candidates: the spawn drop from 0.80 m, the 2 s of policy steps on
+  all-zero observations before Gazebo starts (garbage `last_action`), foot contact/friction.
+- **walk.onnx gets worse with `mj_vel_d`**: it crouches (pelvis z 0.57-0.61 m vs ≈ 0.68), walks too fast (0.73)
+  and slides sideways (−0.24). **Open:** why only walk.onnx. It is the policy that uses base_lin_vel, but §4
+  shows the odometry signal itself is not the problem.
+
+### Earlier single runs (before the controller variants; Luis's gains)
+
+| Run | Final xy (m) | Final yaw | Turn, last 15 s |
+|---|---|---|---|
+| MuJoCo walk.onnx | (8.41, 0.30) | +4.0° | +0.14°/s |
+| MuJoCo Unitree | (9.73, 1.44) | +15.7° | +0.72°/s |
+| Gazebo walk, wall clock | (9.59, −7.10) | −50.5° | −0.33°/s |
+| Gazebo walk, sim clock | (6.48, −9.72) | −70.5° | −2.73°/s |
+| Gazebo Unitree, wall clock | (10.29, −4.83) | −22.2° | −0.46°/s |
+| Gazebo Unitree, sim clock | (9.20, −5.34) | −48.3° | −2.50°/s |
+
+Single runs with large wander: wall vs sim clock is **not** conclusive. Needs repeats (to do).
+
+### Diego's node as-is (`walk_free_elbows.onnx`)
+
+His launch file runs `walk_free_elbows.onnx` (27 actions, elbows not controlled). Nothing commands the elbows,
+so Gazebo holds them at 0 rad (`JointPositionController` default `jointPosCmd{0.0}`). It turns while commanded
+straight in **both** simulators: MuJoCo +0.77°/s (elbows 0 rad), −1.46°/s (elbows 0.6 rad); Gazebo ≈ +1.5°/s.
+`walk.onnx` in MuJoCo: +0.09°/s. So that drift is mostly the policy + elbow pose.
+
+---
+
+## 4. The odometry velocity input (walk.onnx's `base_lin_vel`)
+
+**What it is.** walk.onnx's first 3 observations are the linear velocity of the pelvis IMU point, in the pelvis
+frame. In MuJoCo training this is a `velocimeter` sensor at `imu_in_pelvis`: the exact velocity at this instant.
+Gazebo has no velocimeter in Diego's model, so his node (and ours) reads `/g1/pelvis/odometry`, published by
+Gazebo's `OdometryPublisher` plugin.
+
+**How Gazebo computes it** (gz-sim8 `OdometryPublisher.cc`): every 1 ms physics step, the finite difference of
+the pose at the `xyz_offset` point (= `imu_in_pelvis`, checked), rotated into the current pelvis frame, pushed
+into a rolling mean of 10 samples. So the published value is ≈ (p(t) − p(t − 10 ms)) / 10 ms: a 10 ms average,
+about 5 ms late, published at 400 Hz. Unitree's policy has no linear-velocity input, so this only affects walk.onnx.
+
+**The suspected problem:** a smoothed, delayed velocity could make the policy chase its own estimate.
+
+**Dry run** (`exercises/08_gazebo_reference/odometry_dry_run.py`): MuJoCo only, walk.onnx, everything identical except the velocity
+input:
+
+| base_lin_vel = | vx (cmd 0.5) | vy | turn (°/s) | wander (°) |
+|---|---|---|---|---|
+| velocimeter (training) | 0.43 | −0.01 | +0.14 | 0.18 |
+| Gazebo-style 10 ms average | 0.43 | −0.01 | +0.16 | 0.18 |
+| 40 ms average (4× stronger) | 0.43 | −0.01 | +0.05 | 0.15 |
+| zero | **1.77** | −0.17 | −3.83 | 3.37 |
+
+**Result: the averaging is not the problem.** The policy depends heavily on this input (zero → it runs at
+1.77 m/s), but a 10 ms or even 40 ms average changes nothing. Not yet tested: noise, and the asynchronous read
+(the policy takes whatever message arrived last, up to 2.5 ms old, plus ROS latency).
+
+---
+
+## 5. Measurement pitfall: the "standing" timing error (fixed)
+
+The first version of `run_scenario.sh` started the logger, slept 4 s of **wall** time, then started
+`ros2 topic pub /cmd_vel`. But the logger's t = 0 is its first odometry message, which arrives only after Python
+and rclpy have started (≈ 1-2 s). So the command landed at t ≈ 2-4 s in the log, varying per run, and the
+"standing" window (first 4 s) included walking. All standing numbers from that version were discarded.
+
+Fix: `scenario_logger.py` publishes the command itself, switching at t = STAND on the odometry timestamps
+(simulation time), and records both the command it sent and the last command seen on `/cmd_vel`.
+
+---
+
+## 6. Videos
+
+In `recordings/` (gitignored; regenerate with `gazebo/record.sh`). Gazebo's GUI draws only ≈ 9-10
+distinct frames/s in Docker on the Mac (CPU rendering), whatever the capture rate; files are 30 fps capture,
+25 fps GIF.
+
+| File | What |
+|---|---|
+| `video_{luis,mj,mj_vel_d}_{walk,unitree}` | The three controller setups × both policies (wall clock) |
+| `walk_wall_forward`, `walk_sim_forward`, `unitree_wall_forward`, `unitree_sim_forward` | First policy-runner runs, Luis's gains |
+| `diego_free_elbows_forward` | Diego's node as-is |
+
+---
+
+## 7. Next
+
+1. Why standing is unstable in Gazebo (spawn, start-up observations, contact).
+2. Why walk.onnx degrades with `mj_vel_d` while Unitree improves.
+3. Wall vs sim clock with repeats, on the `mj_vel_d` model.
+4. Policy rate sweep (Diego: 10-70 Hz) with both clocks.
+5. Comparison metrics for Diego vs Unitree across more scenarios (slow, sideways, turning).

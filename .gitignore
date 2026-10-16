@@ -15,3 +15,6 @@ MUJOCO_LOG.TXT
 # Exercise outputs (images/GIFs): regenerate by running the exercise scripts
 exercises/**/*.gif
 exercises/**/*.png
+
+# Gazebo recordings (regenerate with docker/record_gazebo.sh)
+recordings/

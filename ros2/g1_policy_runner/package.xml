@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>g1_policy_runner</name>
+  <version>0.1.0</version>
+  <description>
+    Runs an mjlab-exported ONNX velocity policy (Diego's walk.onnx or Unitree's policy.onnx) on the G1 in
+    Gazebo. Joint order, default pose, action scale and observation layout are read from the ONNX metadata.
+  </description>
+  <maintainer email="sakshum19@gmail.com">Sakshay Mahna</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2</depend>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <!-- Diego's simulation package (robot, worlds, bridge); mounted from 3p/2025-tfg-diego-lopez -->
+  <exec_depend>g1_sim</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

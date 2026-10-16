@@ -1,0 +1,17 @@
+# Start:   docker compose -f docker/compose.yaml up -d --build
+# Desktop: http://localhost:6080  (noVNC in the browser)
+# Shell:   docker compose -f docker/compose.yaml exec -u ubuntu ros bash
+services:
+  ros:
+    build: .
+    image: humanoid-walking-lab/ros2-jazzy-gz
+    ports:
+      - "6080:80"
+    shm_size: 512m
+    volumes:
+      # Diego's packages become the workspace sources; build/ and install/ stay inside the container
+      - ../3p/2025-tfg-diego-lopez:/home/ubuntu/ros2_ws/src/2025-tfg-diego-lopez
+      # Our own ROS 2 packages (g1_policy_runner)
+      - ../ros2:/home/ubuntu/ros2_ws/src/lab
+      # The whole lab repo, for our own nodes and metrics later
+      - ..:/home/ubuntu/humanoid-walking-lab
