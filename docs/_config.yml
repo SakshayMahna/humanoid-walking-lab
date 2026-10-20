@@ -14,6 +14,10 @@ timezone: Asia/Kolkata
 paginate: 10
 paginate_path: /page:num/
 
+# README.md documents this folder on GitHub; don't publish it as a page
+exclude:
+  - README.md
+
 plugins:
   - jekyll-remote-theme
   - jekyll-include-cache

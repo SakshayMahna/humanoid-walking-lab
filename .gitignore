@@ -16,5 +16,5 @@ MUJOCO_LOG.TXT
 exercises/**/*.gif
 exercises/**/*.png
 
-# Gazebo recordings (regenerate with docker/record_gazebo.sh)
+# Gazebo logs and videos (regenerate with the gazebo/ scripts)
 recordings/
