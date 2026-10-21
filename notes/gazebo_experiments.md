@@ -87,7 +87,7 @@ timer_ = create_timer(period, std::bind(&PolicyRunner::policy_step, this));     
 | Damping on joint velocity: τ = kp·(target − q) − kd·q̇ | gz PID: kd · Δerror/dt → kick every time the target changes (every 20 ms) | `mj_vel_d`: `d_gain` 0 + joint `<damping>` kd |
 | Armature (reflected rotor inertia) | none (no SDF parameter); ankle roll has Luis's joint damping 1.5 + friction 0.1 | approximated in link inertia: `original_armature` ([Q1b](../open_questions/q1b_controller/)) |
 | Foot friction 0.6, MuJoCo soft contacts | ground mu 1.0, DART + ODE collision | not tested yet |
-| Physics step 5 ms, policy synchronous | 1 ms, policy asynchronous (ROS topics) | not tested yet |
+| Physics step 5 ms, policy synchronous | 1 ms, policy asynchronous (ROS topics) | 0.2 ms step tested with the original controller ([Q1b](../open_questions/q1b_controller/)); synchronous execution not tested |
 
 **How "D on velocity" is implemented** (`gazebo/make_gain_variants.py`):
 
@@ -123,13 +123,13 @@ Findings:
 - **Unitree walking matches MuJoCo only with the D term on velocity.** Gains alone don't fix the heading wander
   (6.7° → 8.1°); moving D to the velocity does (0.49° vs MuJoCo 0.39°), and speed and turn rate also match.
   The run-to-run spread also collapses (± 0.04°/s).
-- **Standing (zero command) is unstable in Gazebo in every setup**; MuJoCo stands still. Checked with
-  `seen_vx` (the command actually on `/cmd_vel`): in `mj_vel_d` Unitree starts walking at ≈ 0.6 m/s around
-  t = 2 s while the command is 0. **Open:** why. Candidates: the spawn drop from 0.80 m, the 2 s of policy steps on
-  all-zero observations before Gazebo starts (garbage `last_action`), foot contact/friction.
+- **Standing (zero command):** the standing numbers above came from a long-lived container; later tests
+  (Q1) showed Unitree stands still with `mj_vel_d` (0.00-0.04 m in 30 s, with or without GUI) and drifts metres
+  only with the original controller. The ≈ 0.6 m/s walk-offs seen here were not reproduced. See
+  [open_questions/q1_standing](../open_questions/q1_standing/) and [q1b_controller](../open_questions/q1b_controller/).
 - **walk.onnx gets worse with `mj_vel_d`**: it crouches (pelvis z 0.57-0.61 m vs ≈ 0.68), walks too fast (0.73)
-  and slides sideways (−0.24). **Open:** why only walk.onnx. It is the policy that uses base_lin_vel, but §4
-  shows the odometry signal itself is not the problem.
+  and slides sideways (−0.24). **Open (Q2):** why only walk.onnx. It is the policy that uses
+  base_lin_vel, but §4 shows the odometry signal itself is not the problem.
 
 ### Earlier single runs (before the controller variants; Luis's gains)
 
@@ -227,3 +227,57 @@ compare the two policies; Q3-Q4 are policy-execution experiments; Q5-Q7 are sim2
 
 After Q1-Q2: comparison metrics for Diego vs Unitree across more scenarios (slow, sideways, turning), with a
 heading controller option so drift doesn't dominate.
+
+---
+
+## 8. Upstream (Gazebo) and tooling
+
+### Existing Gazebo issues (searched 2026-10-21, all gazebosim repositories)
+
+- **Joint armature / rotor inertia:** no issue, PR or code in gazebosim before ours (sdformat#1734) (the only "armature" hits are skeletal
+  animation). SDFormat 14, gz-physics 7's DART plugin, gz-sim and DART's joint headers have no such parameter
+  (also checked in the container).
+- [sdformat#127](https://github.com/gazebosim/sdformat/issues/127) (open since 2016): "too many simulation problems
+  that are caused by explicit damping"; "the failure mode of explicit damping is numerical instability". Same
+  mechanism as Q1b, for Gazebo Classic's joint damping.
+- [sdformat#473](https://github.com/gazebosim/sdformat/issues/473) (closed): Drake uses its own
+  `drake:rotor_inertia` SDFormat extension for what the native schema can't express.
+- `JointPositionController` D term: no issue about the derivative kick / explicit damping. gz-sim `main` still calls
+  `posPid.Update(error, dt)` (D on the error); gz-math's `PID` already has `Update(error, errorRate, dt)`, so a
+  "derivative on measurement" option would be a small change (raised: gz-sim#4092).
+
+### Our issues (posted 2026-10-21)
+
+| Issue | Asks for |
+|---|---|
+| [sdformat#1734](https://github.com/gazebosim/sdformat/issues/1734): Support joint armature (reflected rotor inertia) | an `<armature>` under `<axis>/<dynamics>`; the gz-physics MuJoCo plugin could map it in one line |
+| [gz-sim#4092](https://github.com/gazebosim/gz-sim/issues/4092): JointPositionController: option to use joint velocity for the D term | "derivative on measurement" via gz-math's `PID::Update(error, errorRate, dt)`, and docs saying `d_gain` acts on the change of the error |
+
+Generic framing (moving MuJoCo-trained locomotion policies to Gazebo, Unitree G1). Not ros2_control: Diego's setup
+doesn't use it (topics → ros_gz_bridge → Gazebo's own plugin). Gazebo's forum (for a possible write-up linking
+both) is the Open Robotics Discourse, Gazebo category.
+
+### Real robot vs the simulators (for context)
+
+- The real G1's motors apply PD themselves: Unitree's deploy code sends per motor the target `q`, `kp`, `kd`, with
+  `dq = 0` and `tau = 0` (`3p/unitree_rl_mjlab/deploy/include/FSM/State_RLBase.h:20-23`), i.e.
+  τ = kp·(q_target − q) − kd·q̇: D on the measured velocity, no kick. The real joints have physical armature.
+- So MuJoCo as trained (armature + D on velocity, implicit) matches the real control law and inertia best; the
+  corrected Gazebo controller has the right law but no armature; Diego's original Gazebo controller differs in both.
+- Which simulator is "closer to reality" overall can't be said without real-robot data: it depends mostly on the
+  model parameters (armature, friction, contacts). Gazebo's advantage for this work is the deployment-like software
+  setup (ROS 2 topics, separate processes and rates), not demonstrated physics fidelity.
+
+### Idea: a MuJoCo → Gazebo policy-transfer package (later)
+
+What this work has shown a transfer needs, which a reusable package could do automatically:
+
+1. **Robot model:** convert the training model (MJCF / mjlab config) to SDF, keeping what training used: armature
+   (approximated in link inertias until Gazebo supports it), joint damping, friction, torque limits.
+2. **Joint control matching training:** P in the controller plugin, D as implicit joint damping (no derivative kick,
+   no explicit damping), gains and limits from the policy's ONNX metadata.
+3. **Policy execution:** a generic runner like `g1_policy_runner` (observations built from the ONNX metadata, sim or
+   wall clock, configurable rate).
+4. **Validation:** the same scenarios in MuJoCo and Gazebo (standing, walking, turning), logged in one format and
+   compared (`summarize_runs.py`, `standing_summary.py`, side-by-side videos), with a stability check per joint
+   ((ωₙΔt)² + 2·kd·Δt/I for explicit damping).

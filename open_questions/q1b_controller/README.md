@@ -256,5 +256,5 @@ open_questions/q1b_controller/gazebo_armature_step.sh 2
 open_questions/q1b_controller/record_armature_step.sh
 ```
 
-Open follow-up: giving the Gazebo model armature instead (closer to training) is not tested; whether Gazebo
-Harmonic's SDF/DART path supports joint armature still needs checking.
+Raised upstream: joint armature in SDFormat ([sdformat#1734](https://github.com/gazebosim/sdformat/issues/1734)) and a
+velocity-based D term for `JointPositionController` ([gz-sim#4092](https://github.com/gazebosim/gz-sim/issues/4092)).

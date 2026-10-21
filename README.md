@@ -27,13 +27,16 @@ Weekly write-ups: **[sakshaymahna.github.io/humanoid-walking-lab](https://saksha
 - **Diego's policy has a dead zone.** It does not move for commands at or below about 0.3 m/s and does not turn in
   place. Unitree's policy has no dead zone; forcing Unitree's gait-clock input to zero reproduces the same dead
   zone. ([notes/diego_vs_unitree.md](notes/diego_vs_unitree.md))
-- **Gazebo's joint controller is not MuJoCo's.** Its D term acts on the change of the position error, so every new
-  policy target (every 20 ms) gives a torque kick. With the policy's own gains and the damping moved onto joint
-  velocity, Unitree's policy walks in Gazebo like in MuJoCo (same speed, heading wander 0.5° vs 0.4°).
-  ([notes/gazebo_experiments.md](notes/gazebo_experiments.md))
-- **Open questions:** standing still is unstable in Gazebo with every controller setup tried, and `walk.onnx`
-  gets worse with the MuJoCo-like controller while Unitree's gets better.
-  ([notes/gazebo_experiments.md](notes/gazebo_experiments.md), [notes/sim2sim_mujoco_vs_gazebo.md](notes/sim2sim_mujoco_vs_gazebo.md))
+- **Gazebo's joint controller breaks the policies, and why.** Gazebo's G1 has no armature (motor rotor inertia),
+  so the ankle-roll joint is ~19× lighter than in training, and Diego's controller applies its damping explicitly,
+  which is numerically unstable on such a light joint (plus a torque kick at every new target). Unitree's policy
+  then drifts metres while told to stand still. Moving the damping into the joint (implicit), restoring the
+  inertia, or a 0.2 ms step each fix it; with the first, Unitree's policy walks in Gazebo like in MuJoCo.
+  ([open_questions/q1_standing](open_questions/q1_standing/), [open_questions/q1b_controller](open_questions/q1b_controller/))
+- **Raised upstream:** joint armature in SDFormat ([sdformat#1734](https://github.com/gazebosim/sdformat/issues/1734))
+  and a velocity-based D term for `JointPositionController` ([gz-sim#4092](https://github.com/gazebosim/gz-sim/issues/4092)).
+- **Open:** `walk.onnx` gets worse with the corrected controller while Unitree's gets better (Q2 in
+  [notes/gazebo_experiments.md](notes/gazebo_experiments.md#7-open-questions)).
 
 ## Repository layout
 
@@ -45,7 +48,7 @@ Weekly write-ups: **[sakshaymahna.github.io/humanoid-walking-lab](https://saksha
 | [`ros2/g1_policy_runner/`](ros2/g1_policy_runner/) | ROS 2 node that runs either ONNX policy on the G1 in Gazebo |
 | [`gazebo/`](gazebo/) | Scripts for Gazebo experiments: scenarios, logging, video recording, controller variants, metrics |
 | [`notes/`](notes/) | Research notes: policy comparison, Gazebo experiment log, MuJoCo vs Gazebo differences |
-| [`open_questions/`](open_questions/) | One folder per open question: scripts, results and reasoning (Q1: standing in Gazebo) |
+| [`open_questions/`](open_questions/) | One folder per open question: scripts, results and reasoning (Q1: standing in Gazebo, Q1b: the joint controller) |
 | [`docs/`](docs/) | The blog (Jekyll, GitHub Pages) and the scripts that generate its images and videos |
 | `3p/` | Third-party repositories used as references (not tracked, see below) |
 | `recordings/` | Gazebo logs and videos (not tracked; regenerate with the `gazebo/` scripts) |
