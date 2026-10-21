@@ -66,8 +66,9 @@ X=$(echo "$GEOM" | tail -1 | cut -d+ -f2); Y=$(echo "$GEOM" | tail -1 | cut -d+ 
 echo "Recording Gazebo window $SIZE at +$X+$Y for ${SECONDS_TOTAL}s"
 
 # Simulation time vs wall time, to compute the average real-time factor afterwards
-sim_seconds() { timeout 3 gz topic -e -t /stats -n 1 | awk '/^sim_time/{f=1} f&&/sec:/{print; if(++n==2) exit}' \
-                | awk '{v[NR]=$2} END{printf "%.3f", v[1] + (NR>1 ? v[2]/1e9 : 0)}'; }
+# (read sec and nsec by name: protobuf omits fields that are 0, e.g. sec during the first second)
+sim_seconds() { timeout 3 gz topic -e -t /stats -n 1 | awk '/^sim_time/{f=1; next} f && /^}/{exit}
+                f && $1 == "sec:"{s = $2} f && $1 == "nsec:"{n = $2} END{printf "%.3f", s + n / 1e9}'; }
 SIM0=$(sim_seconds); WALL0=$(date +%s.%N)
 
 # -draw_mouse 0: hide the cursor; crop the GUI's 48 px title bar

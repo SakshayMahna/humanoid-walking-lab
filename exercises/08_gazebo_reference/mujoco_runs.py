@@ -23,13 +23,14 @@ REPO = script_dir.parent.parent
 OUT = REPO / "recordings" / "mujoco"
 
 
-def run(name, model, data, policy, seconds=24.0, stand=4.0, vx=0.5, after_step=None):
-    """after_step(model, data), if given, runs after every physics step (e.g. to keep a sensor history)."""
+def run(name, model, data, policy, seconds=24.0, stand=4.0, vx=0.5, after_step=None, out=OUT):
+    """after_step(model, data), if given, runs after every physics step (e.g. to keep a sensor history).
+    Writes out/name.csv."""
     mujoco.mj_resetDataKeyframe(model, data, model.key("init_state").id)
     mujoco.mj_forward(model, data)
     control = make_policy_controller(policy, lambda t: [vx if t >= stand else 0.0, 0.0, 0.0])
-    OUT.mkdir(parents=True, exist_ok=True)
-    with open(OUT / f"{name}.csv", "w", newline="") as f:
+    out.mkdir(parents=True, exist_ok=True)
+    with open(out / f"{name}.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["t", "x", "y", "z", "yaw", "vx_body", "vy_body", "wz", "cmd_vx", "cmd_vy", "cmd_wz"])
         for step in range(round(seconds / model.opt.timestep)):
@@ -44,7 +45,7 @@ def run(name, model, data, policy, seconds=24.0, stand=4.0, vx=0.5, after_step=N
                 writer.writerow([f"{data.time:.3f}", *(f"{q:.4f}" for q in data.qpos[0:3]),
                                  f"{yaw(data.qpos[3:7]):.4f}", f"{v[0]:.4f}", f"{v[1]:.4f}", f"{w[2]:.4f}",
                                  f"{cmd:.3f}", "0.000", "0.000"])
-    print(f"wrote {OUT / name}.csv")
+    print(f"wrote {out / name}.csv")
 
 
 if __name__ == "__main__":

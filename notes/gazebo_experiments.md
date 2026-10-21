@@ -209,10 +209,20 @@ distinct frames/s in Docker on the Mac (CPU rendering), whatever the capture rat
 
 ---
 
-## 7. Next
+## 7. Open questions
 
-1. Why standing is unstable in Gazebo (spawn, start-up observations, contact).
-2. Why walk.onnx degrades with `mj_vel_d` while Unitree improves.
-3. Wall vs sim clock with repeats, on the `mj_vel_d` model.
-4. Policy rate sweep (Diego: 10-70 Hz) with both clocks.
-5. Comparison metrics for Diego vs Unitree across more scenarios (slow, sideways, turning).
+Worked through one at a time, in this order: Q1 and Q2 decide whether the Gazebo setup is fair enough to
+compare the two policies; Q3-Q4 are policy-execution experiments; Q5-Q7 are sim2sim research.
+
+| # | Question | What we know | Status |
+|---|---|---|---|
+| Q1 | Why is standing (zero command) unstable in Gazebo? | Unitree: caused by the original Gazebo joint controller (sustained drift, 2.3-4.0 m and ≈ −90° to −130° in 30 s). With the corrected controller it stands still with and without the GUI (RTF 0.90 / 0.99). Earlier headless walk-offs not reproduced. [open_questions/q1_standing](../open_questions/q1_standing/) | **done** (Unitree); walk.onnx → Q2 |
+| Q2 | Why does walk.onnx get worse with `mj_vel_d` while Unitree gets better? | Crouches (z 0.57-0.61), 0.73 m/s for 0.5, slides sideways. Odometry averaging ruled out (§4) | open |
+| Q3 | Wall vs sim clock | Single runs only, not conclusive | open |
+| Q4 | Policy rate (Diego: best ≈ 60 Hz of 10-70 Hz) | Not repeated; his sweep code is not in his repo | open |
+| Q5 | Where Luis's PD gains come from | Same ωₙ, ζ as MuJoCo, inertias ×1.10 / ×1.50 / ×1.21; no derivation found ([sim2sim notes](sim2sim_mujoco_vs_gazebo.md)) | open (ask Luis?) |
+| Q6 | Why Gazebo roughly doubles Unitree's left drift even with `mj_vel_d` (+1.0 to +1.8°/s vs +0.7°/s) | Remaining differences: armature, friction, contacts, 1 ms vs 5 ms step | open |
+| Q7 | Parked sim2sim experiments (D-term graphs, contact, armature, solver, in-loop policy) | [sim2sim notes](sim2sim_mujoco_vs_gazebo.md) | parked |
+
+After Q1-Q2: comparison metrics for Diego vs Unitree across more scenarios (slow, sideways, turning), with a
+heading controller option so drift doesn't dominate.
