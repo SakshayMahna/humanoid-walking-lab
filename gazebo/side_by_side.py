@@ -1,11 +1,12 @@
-"""Combine recordings into one labelled side-by-side video (run on the Mac; needs ffmpeg with drawtext).
+"""Combine recordings into one labelled video: tiles side by side, or a grid with --cols. Run on the Mac
+(needs ffmpeg with drawtext).
 
 Each tile: a label at the top and, if a CSV is given, the run's result at the bottom
 ("moved 0.42 m, turned 12.3° in 30 s").
 
     .venv/bin/python gazebo/side_by_side.py OUT.mp4 --title "Standing test, repeat 1" \
         "MuJoCo (training sim)|recordings/standing/stand_mujoco_unitree_1.mp4|recordings/standing/stand_mujoco_unitree_1.csv" \
-        "Gazebo: Diego's setup|recordings/standing/stand_diego_unitree_1.mp4|recordings/standing/stand_diego_unitree_1.csv"
+        "Gazebo: original controller|recordings/standing/stand_original_unitree_1.mp4|recordings/standing/stand_original_unitree_1.csv"
 """
 
 import argparse
@@ -36,6 +37,7 @@ def main():
     parser.add_argument("tiles", nargs="+", help='"label|video.mp4[|run.csv]"')
     parser.add_argument("--title", default="")
     parser.add_argument("--seconds", type=float, default=30.0)
+    parser.add_argument("--cols", type=int, default=0, help="tiles per row (default: all in one row)")
     args = parser.parse_args()
 
     tmp = Path(tempfile.mkdtemp())
@@ -55,8 +57,12 @@ def main():
         filters.append(chain + f"[t{i}]")
         names.append(f"[t{i}]")
 
-    stack = f"{''.join(names)}hstack=inputs={len(names)}[row]" if len(names) > 1 else f"{names[0]}copy[row]"
-    filters.append(stack)
+    cols = args.cols or len(names)
+    rows = [names[i:i + cols] for i in range(0, len(names), cols)]
+    for r, row in enumerate(rows):
+        filters.append(f"{''.join(row)}hstack=inputs={len(row)}[r{r}]" if len(row) > 1 else f"{row[0]}copy[r{r}]")
+    filters.append(f"{''.join(f'[r{r}]' for r in range(len(rows)))}vstack=inputs={len(rows)}[row]"
+                   if len(rows) > 1 else "[r0]copy[row]")
     (tmp / "title.txt").write_text(args.title)
     filters.append(f"[row]pad=iw:ih+{TITLE_H}:0:{TITLE_H}:color=0x101020,"
                    f"drawtext=fontfile='{FONT_BOLD}':textfile='{tmp / 'title.txt'}':x=(w-tw)/2:y=14:"

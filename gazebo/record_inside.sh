@@ -71,10 +71,11 @@ sim_seconds() { timeout 3 gz topic -e -t /stats -n 1 | awk '/^sim_time/{f=1; nex
                 f && $1 == "sec:"{s = $2} f && $1 == "nsec:"{n = $2} END{printf "%.3f", s + n / 1e9}'; }
 SIM0=$(sim_seconds); WALL0=$(date +%s.%N)
 
-# -draw_mouse 0: hide the cursor; crop the GUI's 48 px title bar
+# -draw_mouse 0: hide the cursor; crop the GUI's 48 px title bar. Records until the run ends (stopped below), so
+# slower-than-real-time runs are recorded completely; -t is only a safety limit.
 ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate "$FPS" -video_size "$SIZE" -i ":1+$X,$Y" \
-    -t "$((SECONDS_TOTAL + 4))" -vf "crop=iw:ih-48:0:48" -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
-    "$OUT/$NAME.mp4" &
+    -t "$((SECONDS_TOTAL * 10))" -vf "crop=iw:ih-48:0:48" -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
+    "$OUT/$NAME.mp4" < /dev/null &
 FFMPEG_PID=$!
 
 # Stand still first, then walk with the requested command
@@ -82,7 +83,8 @@ FFMPEG_PID=$!
 echo "Command vx=$VX vy=$VY wz=$WZ after ${STAND}s (sim time)"
 python3 $LAB/gazebo/scenario_logger.py "$OUT/$NAME.csv" "$SECONDS_TOTAL" "$STAND" "$VX" "$VY" "$WZ" || true
 
-wait $FFMPEG_PID
+kill -INT $FFMPEG_PID 2>/dev/null || true   # ffmpeg finishes the file cleanly on SIGINT
+wait $FFMPEG_PID || true
 SIM1=$(sim_seconds); WALL1=$(date +%s.%N)
 POS=$(timeout 5 ros2 topic echo --once --field pose.pose.position /g1/pelvis/odometry | tr '\n' ' ')
 {

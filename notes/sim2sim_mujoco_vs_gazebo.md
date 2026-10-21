@@ -46,7 +46,7 @@ or not are all variables. Training had one: synchronous, 200 Hz physics, 50 Hz p
 | D term | −kd·q̇ (joint velocity) | kd·Δe/dt on the position error (derivative kick) |
 | Torque limits | ankle roll 50 N·m | ankle roll 10 N·m (`cmd_min/max`); others match |
 | Armature (reflected rotor inertia) | yes, per motor type | none in the SDF |
-| Joint damping/friction | none extra | `<dynamics>` only spring_stiffness 0 |
+| Joint damping/friction | none extra | ankle roll: damping 1.5, friction 0.1 (Luis); all other joints none |
 | Foot friction | 0.6 on foot geoms (priority 1), condim 3 | ground plane mu = mu2 = 1.0 |
 | Collision geometry | foot spheres/capsules from mjlab XML | Unitree URDF-derived collisions (not yet compared) |
 | Linear velocity input | velocimeter at `imu_in_pelvis` site | OdometryPublisher: finite difference of the pose at offset (0.04525, 0, −0.08339) = same point, body frame, moving average |
@@ -79,8 +79,12 @@ gz-math `PID::Update(error, dt)` ([source, gz-math7](https://github.com/gazebosi
 ([JointPositionController.cc, gz-sim8](https://github.com/gazebosim/gz-sim/blob/gz-sim8/src/systems/joint_position_controller/JointPositionController.cc)).
 
 - Target constant (19 of every 20 physics steps): Δe/dt = q̇ → same as MuJoCo's −kd·q̇.
-- Target jumps (once per policy step): Δe = Δtarget in one 1 ms step → torque kd·Δtarget/0.001.
+- Target jumps (once per policy step): Δe = −Δtarget in one 1 ms step → torque +kd·Δtarget/0.001,
+  pointing toward the new target (a "derivative kick").
   Knee example: 9.46 × 0.05 rad / 0.001 s ≈ 473 N·m → clipped to 139 N·m for 1 ms.
+- Measured and explained in [open_questions/q1b_controller](../open_questions/q1b_controller/): the kick alone is
+  minor; the real problem is that the plugin applies damping explicitly on joints with no armature (unstable at
+  ankle roll and wrist roll). SDF joint damping is implicit in DART and fixes it.
 
 ## Experiments to run later
 

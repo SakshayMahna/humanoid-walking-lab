@@ -85,7 +85,7 @@ timer_ = create_timer(period, std::bind(&PolicyRunner::policy_step, this));     
 | kp, kd from the motor model (= ONNX `joint_stiffness/damping`) | Different values (knee ×1.5, see sim2sim notes) | `mj`: metadata values |
 | Torque limits: ankle roll 50 N·m | ankle roll 10 N·m | `mj`: 50 N·m |
 | Damping on joint velocity: τ = kp·(target − q) − kd·q̇ | gz PID: kd · Δerror/dt → kick every time the target changes (every 20 ms) | `mj_vel_d`: `d_gain` 0 + joint `<damping>` kd |
-| Armature (reflected rotor inertia) | none | not tested yet |
+| Armature (reflected rotor inertia) | none (no SDF parameter); ankle roll has Luis's joint damping 1.5 + friction 0.1 | approximated in link inertia: `original_armature` ([Q1b](../open_questions/q1b_controller/)) |
 | Foot friction 0.6, MuJoCo soft contacts | ground mu 1.0, DART + ODE collision | not tested yet |
 | Physics step 5 ms, policy synchronous | 1 ms, policy asynchronous (ROS topics) | not tested yet |
 
@@ -217,10 +217,11 @@ compare the two policies; Q3-Q4 are policy-execution experiments; Q5-Q7 are sim2
 | # | Question | What we know | Status |
 |---|---|---|---|
 | Q1 | Why is standing (zero command) unstable in Gazebo? | Unitree: caused by the original Gazebo joint controller (sustained drift, 2.3-4.0 m and ≈ −90° to −130° in 30 s). With the corrected controller it stands still with and without the GUI (RTF 0.90 / 0.99). Earlier headless walk-offs not reproduced. [open_questions/q1_standing](../open_questions/q1_standing/) | **done** (Unitree); walk.onnx → Q2 |
+| Q1b | Why does the corrected controller work and the original not? | No armature + damping applied explicitly (in the PID plugin) → the ankle-roll damper is numerically unstable (condition 9-11 vs < 4); the kick is a smaller extra; gains/limits barely matter. Confirmed in Gazebo three ways with Unitree: joint damping (implicit), armature added to the links, or a 0.2 ms step each remove the drift. [open_questions/q1b_controller](../open_questions/q1b_controller/) | **done** |
 | Q2 | Why does walk.onnx get worse with `mj_vel_d` while Unitree gets better? | Crouches (z 0.57-0.61), 0.73 m/s for 0.5, slides sideways. Odometry averaging ruled out (§4) | open |
 | Q3 | Wall vs sim clock | Single runs only, not conclusive | open |
 | Q4 | Policy rate (Diego: best ≈ 60 Hz of 10-70 Hz) | Not repeated; his sweep code is not in his repo | open |
-| Q5 | Where Luis's PD gains come from | Same ωₙ, ζ as MuJoCo, inertias ×1.10 / ×1.50 / ×1.21; no derivation found ([sim2sim notes](sim2sim_mujoco_vs_gazebo.md)) | open (ask Luis?) |
+| Q5 | Where Luis's PD gains come from | Same ωₙ, ζ as MuJoCo, inertias ×1.10 / ×1.50 / ×1.21; no derivation found ([sim2sim notes](sim2sim_mujoco_vs_gazebo.md)). Q1b: his 10 N·m ankle-roll limit is what keeps the original setup from falling, so the tuning may compensate for the missing armature (our interpretation) | open (ask Luis?) |
 | Q6 | Why Gazebo roughly doubles Unitree's left drift even with `mj_vel_d` (+1.0 to +1.8°/s vs +0.7°/s) | Remaining differences: armature, friction, contacts, 1 ms vs 5 ms step | open |
 | Q7 | Parked sim2sim experiments (D-term graphs, contact, armature, solver, in-loop policy) | [sim2sim notes](sim2sim_mujoco_vs_gazebo.md) | parked |
 
