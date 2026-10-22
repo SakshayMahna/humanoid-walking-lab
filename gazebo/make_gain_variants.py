@@ -6,6 +6,7 @@
   luis_gains_vel_d  Luis's kp, kd and limits, with the D term moved to joint damping like mj_gains_vel_d
   original_armature  Luis's controllers unchanged, plus each motor's armature (reflected rotor inertia, as in
                   MuJoCo) added to its child link's inertia: SDF/Gazebo has no joint armature, so this approximates it
+  mj_gains_vel_d_armature  the corrected controller plus the same armature approximation (both fixes)
 
 Joint damping replaces any <damping> already there (Luis's model has 1.5 on the ankle-roll joints).
 
@@ -109,13 +110,13 @@ def main():
     controller = r"<plugin filename=\"gz-sim-joint-position-controller-system\".*?</plugin>"
     # name: (gains and limits from, D term on joint velocity?)
     variants = {"mj_gains": ("mj", False), "mj_gains_vel_d": ("mj", True), "luis_gains_vel_d": ("luis", True),
-                "original_armature": ("luis", False)}
+                "original_armature": ("luis", False), "mj_gains_vel_d_armature": ("mj", True)}
     for name, (source, velocity_d) in variants.items():
         params = sources[source]
         out = re.sub(controller, lambda m: set_controller(m, params, velocity_d), sdf, flags=re.S)
         if velocity_d:
             out = add_joint_damping(out, params)
-        if name == "original_armature":
+        if name.endswith("armature"):
             out = add_armature_inertia(out)
         path = OUT / name / "model.sdf"
         path.parent.mkdir(parents=True, exist_ok=True)

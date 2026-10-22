@@ -5,6 +5,7 @@
 # Usage: run_scenario.sh VX VY WZ SECONDS STAND_SECONDS NAME [POLICY_ARGS]   ->  recordings/NAME.csv
 #   no POLICY_ARGS: Diego's g1_locomotion node (walk_free_elbows.onnx)
 #   POLICY_ARGS:    our g1_policy_runner, e.g. "policy:=unitree clock:=sim"
+# ODOM_LOG=1: also log every odometry message (400 Hz) to recordings/NAME.odom.csv
 set -eo pipefail
 
 VX=$1; VY=$2; WZ=$3; SECONDS_TOTAL=$4; STAND=$5; NAME=$6; POLICY_ARGS=$7
@@ -43,7 +44,9 @@ sim_seconds() { timeout 3 gz topic -e -t /stats -n 1 | awk '/^sim_time/{f=1; nex
 SIM0=$(sim_seconds); WALL0=$(date +%s.%N)
 
 # The logger also publishes /cmd_vel, timed on simulation time (zero for STAND s, then the command)
-python3 $LAB/gazebo/scenario_logger.py $LAB/recordings/$NAME.csv "$SECONDS_TOTAL" "$STAND" "$VX" "$VY" "$WZ" || true
+ODOM_CSV=""; [ "${ODOM_LOG:-0}" = 1 ] && ODOM_CSV=$LAB/recordings/$NAME.odom.csv
+# shellcheck disable=SC2086  (ODOM_CSV is empty or one path)
+python3 $LAB/gazebo/scenario_logger.py $LAB/recordings/$NAME.csv "$SECONDS_TOTAL" "$STAND" "$VX" "$VY" "$WZ" $ODOM_CSV || true
 
 SIM1=$(sim_seconds); WALL1=$(date +%s.%N)
 {

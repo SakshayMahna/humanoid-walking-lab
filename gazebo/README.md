@@ -31,11 +31,11 @@ The scripts build the ROS 2 packages on first use (`colcon build`, about 15 s).
 
 | Script | Where it runs | What it does |
 |---|---|---|
-| [`run_scenario.sh`](run_scenario.sh) | container | Headless run (no GUI) of one scenario → `recordings/NAME.csv` |
+| [`run_scenario.sh`](run_scenario.sh) | container | Headless run (no GUI) of one scenario → `recordings/NAME.csv`; with `ODOM_LOG=1` also every odometry message (walk.onnx's velocity input) → `NAME.odom.csv` |
 | [`scenario_logger.py`](scenario_logger.py) | container | Sends the command on **simulation time** (zero for STAND s, then the command) and logs pelvis odometry at 20 Hz |
 | [`record.sh`](record.sh) | Mac | Starts the container and runs [`record_inside.sh`](record_inside.sh): same scenario with the Gazebo GUI, screen-recorded → `NAME.mp4`, `NAME.gif`, `NAME.csv` |
 | [`gui_record.config`](gui_record.config) | container | Gazebo GUI layout for recording: only the 3D view and the sim-time / RTF overlay |
-| [`make_gain_variants.py`](make_gain_variants.py) | Mac | Writes copies of Diego's robot SDF with other joint controllers (`mj_gains`, `mj_gains_vel_d` = corrected, `luis_gains_vel_d`) or with armature added to the link inertias (`original_armature`) → `recordings/gz_models/` |
+| [`make_gain_variants.py`](make_gain_variants.py) | Mac | Writes copies of Diego's robot SDF with other joint controllers (`mj_gains`, `mj_gains_vel_d` = corrected, `luis_gains_vel_d`) or with armature added to the link inertias (`original_armature`, and `mj_gains_vel_d_armature` with both fixes) → `recordings/gz_models/` |
 | [`gain_experiment.sh`](gain_experiment.sh) | container | All controller variants × both policies × repeats → `recordings/gains/` |
 | [`summarize_runs.py`](summarize_runs.py) | Mac | Metrics table from any set of CSVs (Gazebo or MuJoCo) |
 | [`side_by_side.py`](side_by_side.py) | Mac | Labelled side-by-side or grid videos from recordings, with each run's result from its CSV |

@@ -70,11 +70,11 @@ def luis_params(joints):
 
 
 def run(model, data, policy, joints, gains, limits, dterm, armature, scenario, trace=False, on_step=None,
-        extras=False):
+        extras=False, out=OUT, prefix=""):
     """One run. model.dof_armature must already be set for `armature`. on_step(model, data), if given, runs
     after every physics step (e.g. to render a video). extras=True adds what Luis's Gazebo model has on the
     ankle-roll joints: joint damping 1.5 (replaced by kd when dterm is "jnt", as the Gazebo variants do) and
-    friction 0.1 (MuJoCo frictionloss)."""
+    friction 0.1 (MuJoCo frictionloss). CSVs go to out/, names start with prefix (Q2 reuses this for walk.onnx)."""
     seconds, stand, vx = SCENARIOS[scenario]
     pol, luis = policy_params(joints), luis_params(joints)
     kp, kd = (pol if gains == "policy" else luis)[:2]
@@ -96,8 +96,8 @@ def run(model, data, policy, joints, gains, limits, dterm, armature, scenario, t
     e_prev = np.zeros(n)               # gz-math PID starts with pErrLast = 0
     k = joints.index(TRACE_JOINT)
 
-    name = f"arm{armature}_{gains}gains_{limits}limits_{dterm}{'_x' if extras else ''}_{scenario}"
-    OUT.mkdir(parents=True, exist_ok=True)
+    name = f"{prefix}arm{armature}_{gains}gains_{limits}limits_{dterm}{'_x' if extras else ''}_{scenario}"
+    out.mkdir(parents=True, exist_ok=True)
     rows, trace_rows = [], []
     for step in range(round(seconds / DT)):
         if step % DECIMATION == 0:
@@ -130,12 +130,12 @@ def run(model, data, policy, joints, gains, limits, dterm, armature, scenario, t
         if trace and 10.0 <= data.time < 10.5:   # 0.5 s of knee torque, every step
             trace_rows.append([f"{data.time:.4f}", f"{target[k]:.5f}", f"{q[k]:.5f}", f"{tau[k]:.3f}"])
 
-    with open(OUT / f"{name}.csv", "w", newline="") as f:
+    with open(out / f"{name}.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["t", "x", "y", "z", "yaw", "vx_body", "vy_body", "wz", "cmd_vx", "cmd_vy", "cmd_wz"])
         w.writerows(rows)
     if trace:
-        with open(OUT / f"trace_{name}.csv", "w", newline="") as f:
+        with open(out / f"trace_{name}.csv", "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(["t", "target", "q", "tau"])
             w.writerows(trace_rows)

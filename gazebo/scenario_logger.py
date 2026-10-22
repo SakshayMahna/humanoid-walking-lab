@@ -4,8 +4,10 @@ Timed on SIMULATION time (odometry stamps): zero command for STAND s, then [VX, 
 The logger publishes /cmd_vel itself, so the command starts at exactly t = STAND in the log
 (an external `ros2 topic pub` started with a wall-clock sleep lands 2-4 s late/early depending on startup).
 
-Run inside the container:  python3 scenario_logger.py OUT.csv SECONDS STAND VX VY WZ
+Run inside the container:  python3 scenario_logger.py OUT.csv SECONDS STAND VX VY WZ [ODOM.csv]
 CSV columns: t, x, y, z, yaw, vx_body, vy_body, wz, cmd_vx, cmd_vy, cmd_wz, seen_vx (last vx on /cmd_vel)
+ODOM.csv (optional): every odometry message (400 Hz), stamp, pose and twist as published = walk.onnx's
+base_lin_vel input: t, x, y, z, qw, qx, qy, qz, vx, vy, vz, wx, wy, wz
 """
 
 import csv
@@ -19,11 +21,15 @@ from rclpy.node import Node
 
 
 class ScenarioLogger(Node):
-    def __init__(self, path, seconds, stand, command):
+    def __init__(self, path, seconds, stand, command, odom_path=None):
         super().__init__("scenario_logger")
         self.file = open(path, "w", newline="")
         self.writer = csv.writer(self.file)
         self.writer.writerow(["t", "x", "y", "z", "yaw", "vx_body", "vy_body", "wz", "cmd_vx", "cmd_vy", "cmd_wz", "seen_vx"])
+        self.odom_file = open(odom_path, "w", newline="") if odom_path else None
+        if self.odom_file:
+            self.odom_writer = csv.writer(self.odom_file)
+            self.odom_writer.writerow(["t", "x", "y", "z", "qw", "qx", "qy", "qz", "vx", "vy", "vz", "wx", "wy", "wz"])
         self.seconds, self.stand, self.command = seconds, stand, command
         self.t0 = None
         self.last_log = -1.0
@@ -42,6 +48,11 @@ class ScenarioLogger(Node):
             self.t0 = t_abs
         t = t_abs - self.t0
         cmd = self.command if t >= self.stand else (0.0, 0.0, 0.0)
+        if self.odom_file:
+            p, q, v = msg.pose.pose.position, msg.pose.pose.orientation, msg.twist.twist
+            self.odom_writer.writerow([f"{t:.4f}", *(f"{a:.6f}" for a in (p.x, p.y, p.z, q.w, q.x, q.y, q.z)),
+                                       *(f"{a:.5f}" for a in (v.linear.x, v.linear.y, v.linear.z,
+                                                              v.angular.x, v.angular.y, v.angular.z))])
 
         if t - self.last_cmd >= 0.1:   # 10 Hz, like `ros2 topic pub -r 10`
             self.last_cmd = t
@@ -61,14 +72,17 @@ class ScenarioLogger(Node):
         if t > self.seconds:
             self.cmd_pub.publish(Twist())   # stop
             self.file.close()
+            if self.odom_file:
+                self.odom_file.close()
             raise SystemExit
 
 
 def main():
     out, seconds, stand = sys.argv[1], float(sys.argv[2]), float(sys.argv[3])
     command = tuple(float(v) for v in sys.argv[4:7])
+    odom_path = sys.argv[7] if len(sys.argv) > 7 else None
     rclpy.init()
-    node = ScenarioLogger(out, seconds, stand, command)
+    node = ScenarioLogger(out, seconds, stand, command, odom_path)
     try:
         rclpy.spin(node)
     except SystemExit:
