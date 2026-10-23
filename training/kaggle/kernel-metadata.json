@@ -1,0 +1,18 @@
+{
+  "id": "sakshaymahna/teaching-a-unitree-g1-to-walk-reinforcement-learn",
+  "id_no": 140332063,
+  "title": "Teaching a Unitree G1 to Walk: Reinforcement Learn",
+  "code_file": "teaching-a-unitree-g1-to-walk-reinforcement-learn.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "keywords": [],
+  "dataset_sources": [],
+  "kernel_sources": [],
+  "competition_sources": [],
+  "model_sources": [],
+  "machine_shape": "NvidiaTeslaT4"
+}

@@ -2,6 +2,7 @@
 
     ros2 launch g1_policy_runner policy.launch.py policy:=walk clock:=wall
     ros2 launch g1_policy_runner policy.launch.py policy:=unitree clock:=sim gui:=false
+    ros2 launch g1_policy_runner policy.launch.py policy:=unitree policy_file:=/path/to/own/policy.onnx
 
 Same order as Diego's g1_locomotion.launch.py: the policy node starts first, Gazebo (+ bridge + spawn) 2 s later.
 Gazebo is started with Diego's g1_sim/sim_core.py, so the robot, world and bridge are identical for both policies.
@@ -21,6 +22,9 @@ def launch_setup(context):
     policy = LaunchConfiguration("policy").perform(context)
     clock = LaunchConfiguration("clock").perform(context)
     config = os.path.join(get_package_share_directory("g1_policy_runner"), "config", f"{policy}.yaml")
+    # Optional: another ONNX file with the same observation layout as `policy` (e.g. one we trained ourselves)
+    policy_file = LaunchConfiguration("policy_file").perform(context)
+    overrides = {"policy_file": policy_file} if policy_file else {}
 
     policy_node = Node(
         package="g1_policy_runner",
@@ -31,7 +35,8 @@ def launch_setup(context):
             config,
             {"clock": clock,                      # which timer drives the policy: "wall" or "sim"
              "use_sim_time": clock == "sim",      # node clock follows Gazebo's /clock (bridged by g1_sim)
-             "policy_period": float(LaunchConfiguration("policy_period").perform(context))},
+             "policy_period": float(LaunchConfiguration("policy_period").perform(context)),
+             **overrides},
         ],
     )
 
@@ -54,6 +59,8 @@ def launch_setup(context):
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("policy", default_value="walk", description="walk | unitree (config/<policy>.yaml)"),
+        DeclareLaunchArgument("policy_file", default_value="",
+                              description="ONNX file to load instead of the one in config/<policy>.yaml"),
         DeclareLaunchArgument("clock", default_value="wall", description="wall | sim: clock that drives the policy timer"),
         DeclareLaunchArgument("policy_period", default_value="0.02", description="s between policy steps (training: 0.02)"),
         DeclareLaunchArgument("gui", default_value="true", description="Start the Gazebo GUI"),

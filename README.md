@@ -48,7 +48,8 @@ Weekly write-ups: **[sakshaymahna.github.io/humanoid-walking-lab](https://saksha
 | [`ros2/g1_policy_runner/`](ros2/g1_policy_runner/) | ROS 2 node that runs either ONNX policy on the G1 in Gazebo |
 | [`gazebo/`](gazebo/) | Scripts for Gazebo experiments: scenarios, logging, video recording, controller variants, metrics |
 | [`notes/`](notes/) | Research notes: policy comparison, Gazebo experiment log, MuJoCo vs Gazebo differences |
-| [`open_questions/`](open_questions/) | One folder per open question: scripts, results and reasoning (Q1: standing in Gazebo, Q1b: the joint controller) |
+| [`open_questions/`](open_questions/) | One folder per open question: scripts, results and reasoning (Q1-Q3, Q6 done; Q2 Gazebo side narrowed down; Q5 asked upstream) |
+| [`training/`](training/) | Training our own G1 policies with mjlab on Kaggle (tutorial notebook, pushed with the Kaggle CLI), plus MuJoCo/Gazebo evaluation of trained policies |
 | [`docs/`](docs/) | The blog (Jekyll, GitHub Pages) and the scripts that generate its images and videos |
 | `3p/` | Third-party repositories used as references (not tracked, see below) |
 | `recordings/` | Gazebo logs and videos (not tracked; regenerate with the `gazebo/` scripts) |

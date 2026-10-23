@@ -18,3 +18,4 @@ exercises/**/*.png
 
 # Gazebo logs and videos (regenerate with the gazebo/ scripts)
 recordings/
+training/kaggle/output/
