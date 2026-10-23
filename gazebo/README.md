@@ -31,7 +31,7 @@ The scripts build the ROS 2 packages on first use (`colcon build`, about 15 s).
 
 | Script | Where it runs | What it does |
 |---|---|---|
-| [`run_scenario.sh`](run_scenario.sh) | container | Headless run (no GUI) of one scenario → `recordings/NAME.csv`; with `ODOM_LOG=1` also every odometry message (walk.onnx's velocity input) → `NAME.odom.csv` |
+| [`run_scenario.sh`](run_scenario.sh) | container | Headless run (no GUI) of one scenario → `recordings/NAME.csv`; with `ODOM_LOG=1` also every odometry message (walk.onnx's velocity input) → `NAME.odom.csv`, with `STEP_LOG=1` the wall and sim time of every policy step → `NAME.steps.csv` |
 | [`scenario_logger.py`](scenario_logger.py) | container | Sends the command on **simulation time** (zero for STAND s, then the command) and logs pelvis odometry at 20 Hz |
 | [`record.sh`](record.sh) | Mac | Starts the container and runs [`record_inside.sh`](record_inside.sh): same scenario with the Gazebo GUI, screen-recorded → `NAME.mp4`, `NAME.gif`, `NAME.csv` |
 | [`gui_record.config`](gui_record.config) | container | Gazebo GUI layout for recording: only the 3D view and the sim-time / RTF overlay |

@@ -133,6 +133,44 @@ At deploy time all three use the nominal foot friction 0.6.
    ticking gait clock is what makes it step at small commands. Diego's policy has no clock and behaves like
    Unitree's without one, which strongly suggests the same cause, but that is not proven for Diego's training.
 
+## Robustness: training differences that could explain Q2 (checked 2026-10-22)
+
+Q2 ([open_questions/q2_walk_onnx](../open_questions/q2_walk_onnx/)) found that in Gazebo without armature,
+walk.onnx always fails (walks off while standing, 0.72 m/s and sliding while walking) while Unitree's policy only
+sometimes fails (walks off while standing in 2 of 4 sim-clock runs). With armature both are fine. This section
+looks at the training setups for what could make one policy more robust to a dynamics change than the other.
+
+Sources: Unitree `src/tasks/velocity/velocity_env_cfg.py`, `config/g1/env_cfgs.py`, `config/g1/rl_cfg.py`,
+`mdp/rewards.py`; mjlab 1.2.0 `tasks/velocity/` and `envs/mdp/dr/`. For Diego, the weights and randomization
+above (versions A/B) were checked against mjlab's history; values marked *(1.2.0)* come from mjlab 1.2.0's G1 task,
+which has the same reward weights as A/B, but whether A/B used the same per-joint values is **not checked**.
+
+| Factor | walk.onnx (Diego) | Unitree | Could it explain Q2? |
+|---|---|---|---|
+| Randomized joint dynamics (armature, damping, PD gains, link masses) | **none** | **none** | Neither policy ever saw joint dynamics different from training. mjlab 1.2.0 has `dr.joint_armature`, `dr.joint_damping`, `dr.pd_gains`, `dr.body_mass`, but neither task uses them. That fits Q2: **both** are fragile without armature, Unitree's less so |
+| Linear velocity | actor input (noise ±0.5) | critic only | Likely part of it. walk.onnx walks by velocity feedback (with zero input it runs at 1.77 m/s, `odometry_dry_run.py`). Q2 shows the input is measured correctly, so the issue would be how the policy reacts, not the signal |
+| Gait clock | none | phase input (period 0.6 s) + `foot_gait` reward +0.5 | Likely part of it. Unitree's stepping follows a fixed rhythm; walk.onnx's stepping comes from its own state (its dead zone shows it does not step when commands are small: see above). A state-driven gait can be pushed into a different rhythm when the dynamics change |
+| Holding still at zero command | `pose` reward only: exp(−mean(err²/std²)), std 0.05 rad when standing | same `pose` reward **plus `stand_still` −1**: sum of squared joint offsets from the default pose, when ‖cmd‖ ≤ 0.1 | Fits the standing walk-offs. An exp reward gives almost no push back once the pose is far off; the squared penalty grows with the error. walk.onnx walks off standing every time, Unitree's half the time |
+| Fall penalty | none | `is_terminated` −200 | Makes Unitree's policy more cautious |
+| Smoothness | `action_rate` **−0.1** | `action_rate` −0.05, **`joint_acc_l2` −2.5e-7** | Mixed. Diego penalizes jumpy actions more; only Unitree penalizes fast joint accelerations, the kind of fast joint motion that missing armature makes easier |
+| Tracking vs the rest | tracking weight 2.0 (lin and ang) | 1.0 | Diego weights tracking twice as much against all the "behave nicely" terms |
+| Upright | `upright` +1: exp(−‖g_xy‖²/0.2) | `body_orientation_l2` −1: ‖g_xy‖² | Same idea, different shape. walk.onnx leaned ≈ 6° forward in the failing Gazebo setup |
+| Walking pose std | *(1.2.0)* hip pitch 0.3, knee 0.35, ankle pitch 0.25 | hip pitch 0.5, knee 0.5, ankle pitch 0.15 | Small: Unitree holds the ankle pitch tighter, the knees looser |
+| Pushes | every **1-3 s** | every 5-6 s | Against the trend: Diego's policy was pushed more often, yet is less robust. Pushes train recovery from disturbances, not adaptation to different joint dynamics |
+| Friction, COM, encoder bias | 0.3-1.2; COM none / ±2.5 cm; bias none / ±0.015 (A / B) | 0.3-1.6; ±5 cm; ±0.015 | Unitree randomizes a bit more |
+| Standing commands | 10 % of envs | 5 % | Against the trend |
+| Network | not checked (needs the `onnx` package to read layer sizes) | actor 512-256-128, ELU | – |
+
+**What this says, and what it can't.** No training setting covers joint dynamics, so neither policy was taught
+to handle missing armature, which matches Q2: both are borderline, and only corrected controller + armature works
+reliably for both. Several Unitree-only choices plausibly make its policy more tolerant: no velocity input, a gait
+clock, `stand_still`, `joint_acc_l2`, `is_terminated`. A config comparison cannot say which one matters: that
+needs training ablations. Examples, each a change to mjlab's G1 velocity task:
+1. Add `dr.joint_armature` (and/or `dr.pd_gains`): does the policy survive Gazebo without armature?
+2. Remove `base_lin_vel` from the actor (keep it in the critic): does walk.onnx's fragility go away?
+3. Add `stand_still`: do the standing walk-offs go away?
+4. Add the gait clock and `foot_gait`: does it fix the dead zone and the robustness together?
+
 ## To do when switching to Unitree
 
 1. Robot XML → Unitree's `g1.xml` (or confirm differences don't matter).

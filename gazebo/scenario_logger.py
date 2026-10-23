@@ -4,24 +4,29 @@ Timed on SIMULATION time (odometry stamps): zero command for STAND s, then [VX, 
 The logger publishes /cmd_vel itself, so the command starts at exactly t = STAND in the log
 (an external `ros2 topic pub` started with a wall-clock sleep lands 2-4 s late/early depending on startup).
 
-Run inside the container:  python3 scenario_logger.py OUT.csv SECONDS STAND VX VY WZ [ODOM.csv]
+Run inside the container:  python3 scenario_logger.py OUT.csv SECONDS STAND VX VY WZ [--odom ODOM.csv] [--steps STEPS.csv]
 CSV columns: t, x, y, z, yaw, vx_body, vy_body, wz, cmd_vx, cmd_vy, cmd_wz, seen_vx (last vx on /cmd_vel)
-ODOM.csv (optional): every odometry message (400 Hz), stamp, pose and twist as published = walk.onnx's
-base_lin_vel input: t, x, y, z, qw, qx, qy, qz, vx, vy, vz, wx, wy, wz
+--odom:  every odometry message (400 Hz), stamp, pose and twist as published = walk.onnx's base_lin_vel input:
+         t, x, y, z, qw, qx, qy, qz, vx, vy, vz, wx, wy, wz
+--steps: one row per policy step (each command the policy publishes for the left knee): wall time (s, monotonic)
+         and simulation time (s, latest /clock) when it arrived: wall, sim
 """
 
 import csv
 import math
 import sys
+import time
 
 import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rosgraph_msgs.msg import Clock
+from std_msgs.msg import Float64
 
 
 class ScenarioLogger(Node):
-    def __init__(self, path, seconds, stand, command, odom_path=None):
+    def __init__(self, path, seconds, stand, command, odom_path=None, steps_path=None):
         super().__init__("scenario_logger")
         self.file = open(path, "w", newline="")
         self.writer = csv.writer(self.file)
@@ -30,6 +35,13 @@ class ScenarioLogger(Node):
         if self.odom_file:
             self.odom_writer = csv.writer(self.odom_file)
             self.odom_writer.writerow(["t", "x", "y", "z", "qw", "qx", "qy", "qz", "vx", "vy", "vz", "wx", "wy", "wz"])
+        self.steps_file = open(steps_path, "w", newline="") if steps_path else None
+        if self.steps_file:
+            self.steps_writer = csv.writer(self.steps_file)
+            self.steps_writer.writerow(["wall", "sim"])
+            self.sim_now = float("nan")
+            self.create_subscription(Clock, "/clock", self.on_clock, 100)
+            self.create_subscription(Float64, "/g1/cmd_pos/left_knee_joint", self.on_policy_step, 10)
         self.seconds, self.stand, self.command = seconds, stand, command
         self.t0 = None
         self.last_log = -1.0
@@ -41,6 +53,12 @@ class ScenarioLogger(Node):
 
     def on_cmd(self, msg):
         self.seen_vx = msg.linear.x
+
+    def on_clock(self, msg):
+        self.sim_now = msg.clock.sec + msg.clock.nanosec * 1e-9
+
+    def on_policy_step(self, msg):
+        self.steps_writer.writerow([f"{time.monotonic():.6f}", f"{self.sim_now:.4f}"])
 
     def on_odom(self, msg):
         t_abs = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9   # simulation time
@@ -72,17 +90,18 @@ class ScenarioLogger(Node):
         if t > self.seconds:
             self.cmd_pub.publish(Twist())   # stop
             self.file.close()
-            if self.odom_file:
-                self.odom_file.close()
+            for f in (self.odom_file, self.steps_file):
+                if f:
+                    f.close()
             raise SystemExit
 
 
 def main():
     out, seconds, stand = sys.argv[1], float(sys.argv[2]), float(sys.argv[3])
     command = tuple(float(v) for v in sys.argv[4:7])
-    odom_path = sys.argv[7] if len(sys.argv) > 7 else None
+    options = dict(zip(sys.argv[7::2], sys.argv[8::2]))   # --odom PATH, --steps PATH
     rclpy.init()
-    node = ScenarioLogger(out, seconds, stand, command, odom_path)
+    node = ScenarioLogger(out, seconds, stand, command, options.get("--odom"), options.get("--steps"))
     try:
         rclpy.spin(node)
     except SystemExit:

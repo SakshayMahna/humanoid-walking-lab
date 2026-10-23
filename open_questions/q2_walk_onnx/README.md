@@ -1,13 +1,15 @@
 # Q2: why does walk.onnx get worse with the corrected controller?
 
-**Status: open, narrowed down.**
+**Status: Gazebo side narrowed down to the physics engine; training side moves to our own training runs.**
 
 - Test 1 (MuJoCo): without armature, implicit damping is enough for walk.onnx, as for Unitree's policy.
 - Test 2-3 (Gazebo, 3 repeats): without armature it is **not** enough. walk.onnx fails (walks off while standing,
   0.72 m/s and sliding while walking); Unitree's policy walks off while standing in 2 of 3 runs on the sim clock.
   **Corrected controller + armature fixes both policies in every run.**
 - The velocity input is ruled out: walk.onnx sees its true velocity (same frame, scale 1.00, no extra noise).
-- Remaining: why Gazebo needs the armature when MuJoCo does not.
+- Test 4: the robot model (link inertias, foot shape, friction) is ruled out.
+- Remaining: the physics engine itself (DART vs MuJoCo), and why walk.onnx's training makes it less tolerant.
+  See [Conclusion so far](#conclusion-so-far).
 
 ## The question
 
@@ -158,19 +160,60 @@ computed from the logged pose ((p(t) − p(t − 10 ms)) / 10 ms, rotated into t
   frame that means the pelvis is pitched forward by about atan(0.073 / 0.72) ≈ 6°: walk.onnx walks crouched and
   leaning forward.
 
-## What is left
+## Test 4: is it the robot model? (MuJoCo with Gazebo's links and feet)
 
-Why does Gazebo without armature break the policies when MuJoCo without armature does not? Differences that remain
-between the two no-armature setups:
+Without armature, the same controller works in MuJoCo but not in Gazebo. So something else differs between the
+two. First candidate: the robot itself, i.e. what is in Gazebo's `model.sdf` vs MuJoCo's XML.
 
-| Difference | Notes |
+**Links** ([`compare_inertias.py`](compare_inertias.py)): total mass is identical (33.341 kg) and 27 of 30 links
+match exactly (mass and principal moments). The 3 that differ are the links with extra parts fixed to them in
+Gazebo: torso (+ head, logo) and both wrist-yaw links (+ rubber hands). Combined with the parallel-axis theorem,
+their masses match, but the Gazebo versions have a different centre of mass and inertia: torso inertia about 20 %
+larger (centre of mass 6 mm higher), wrist-yaw + hand inertia about 40 % smaller (centre of mass 2.8 cm closer to
+the wrist). The two MuJoCo models (mjlab's and Unitree's) are identical to each other here.
+
+**Feet**: Gazebo's foot is 4 spheres of 5 mm radius at the sole's corners (4 contact points), with no friction
+set (Gazebo's default applies). MuJoCo's foot is 7 capsules of 1 cm radius covering the sole, friction 0.6. Same
+sole height and footprint.
+
+**Test** (MuJoCo, corrected controller, policy every 20 ms at 1 ms steps, walk.onnx):
+[`mujoco_gazebo_inertias.py`](mujoco_gazebo_inertias.py) gives MuJoCo Gazebo's torso and wrist values;
+[`mujoco_gazebo_feet.py`](mujoco_gazebo_feet.py) gives MuJoCo Gazebo's 4-sphere feet, with friction 0.6 and 1.0.
+
+| MuJoCo, corrected controller | Armature | Stand: moved in 30 s | Walk vx | vy | wander |
+|---|---|---|---|---|---|
+| training model (Test 1) | off | 0.01 m | 0.45 | −0.01 | 0.28° |
+| Gazebo's torso and wrist inertias | off | 0.01 m | 0.45 | −0.01 | 0.31° |
+| Gazebo's feet, friction 0.6 | off | 0.01 m | 0.48 | −0.01 | 0.37° |
+| Gazebo's feet, friction 1.0 | off | 0.02 m | 0.49 | −0.00 | 0.38° |
+| (Gazebo itself, Test 3) | off | 3.0-4.0 m | 0.72 | −0.23 | 1.4° |
+
+How the feet were swapped: `build_g1_model`'s `decorate(spec)` hook deletes MuJoCo's foot capsules and adds, for
+each `<collision>` of the SDF's ankle-roll link, a sphere with the same position and radius on the same body, with
+the training feet's contact settings (`condim=3`, `priority=1`, sliding friction 0.6 or 1.0). The two files use the
+same ankle-roll frame (the link's centre of mass is at (0.026505, 0, −0.016425) in both), so the positions carry
+over directly. Limits: Gazebo's default friction is not known (0.6 and 1.0 bracket it, not checked); torsional and
+rolling friction are MuJoCo's defaults; and contacts are still solved MuJoCo's way, which belongs to the remaining
+"physics engine" candidate.
+
+**Result: the robot model is ruled out.** With Gazebo's links or Gazebo's feet, walk.onnx in MuJoCo still stands
+still and walks normally without armature. (The explicit-damping case with Gazebo's inertias still falls, as with
+the training model: that part is the Q1b instability.)
+
+## Conclusion so far
+
+| Candidate | Status |
 |---|---|
-| Physics engine: DART vs MuJoCo (contacts, joint integration) | MuJoCo's no-armature test is not a faithful copy of Gazebo |
-| Robot model: SDF link masses and inertias, foot collision shapes vs MuJoCo's XML | Without armature the small links (ankles, wrists) have tiny inertias, so their values matter more |
-| Policy timing: sim-clock timer (fails more often) vs wall clock | Q3 |
+| Controller (gains, limits, D term) | Not enough on its own: corrected controller works in MuJoCo (Test 1) |
+| Velocity input (`base_lin_vel`) | Ruled out: seen = true, no extra noise (Test 3) |
+| Robot model: link masses, inertias | Ruled out (Test 4) |
+| Robot model: foot shape, friction | Ruled out (Test 4) |
+| Policy timing (sim vs wall clock) | Matters in borderline cases; see Q3 |
+| **Physics engine (DART vs MuJoCo): contacts, constraint solving, joint integration** | **Remaining.** Without armature, the joints are very light (an ankle roll has 5 % of its MuJoCo inertia), and how each engine handles such light joints in contact can differ. Not testable with configuration changes; would need DART-level experiments (or the gz-physics MuJoCo plugin, when it ships) |
+| **Training (why walk.onnx tolerates it less than Unitree's policy)** | **Remaining.** Neither policy was trained with randomized joint dynamics; Unitree's has several robustness-related terms walk.onnx's lacks. Comparison and proposed training ablations: [notes/diego_vs_unitree.md](../../notes/diego_vs_unitree.md#robustness-training-differences-that-could-explain-q2-checked-2026-10-22). Next step: our own training runs |
 
-Candidate next tests: compare the link inertias and masses of the SDF with the MuJoCo XML (cheap, no simulation);
-Q3 (the clock) with repeats.
+**Practical answer**: in Gazebo, use the corrected controller **and** armature in the link inertias
+(`mj_gains_vel_d_armature`). Both policies then stand still and walk like in MuJoCo, in every run.
 
 ## Videos (`recordings/q2/`, not tracked)
 
@@ -192,6 +235,9 @@ Q3 (the clock) with repeats.
 | [`gazebo_repeats.sh`](gazebo_repeats.sh) | Test 3: headless repeats, both policies, velocity input logged → `rep_*.{csv,odom.csv}` |
 | [`mujoco_velocity_log.py`](mujoco_velocity_log.py) | MuJoCo reference for the velocity log (velocimeter, four setups) → `mj_walk_*.odom.csv` |
 | [`velocity_analysis.py`](velocity_analysis.py) | Seen vs true velocity, scale and shake, for Gazebo or MuJoCo `.odom.csv` |
+| [`compare_inertias.py`](compare_inertias.py) | Test 4: link masses and principal moments, Gazebo SDF vs both MuJoCo models |
+| [`mujoco_gazebo_inertias.py`](mujoco_gazebo_inertias.py) | Test 4: MuJoCo with Gazebo's torso and wrist inertias → `gzinertia_*.csv` |
+| [`mujoco_gazebo_feet.py`](mujoco_gazebo_feet.py) | Test 4: MuJoCo with Gazebo's 4-sphere feet, friction 0.6 / 1.0 → `gzfeet_*.csv` |
 | [`summarize.py`](summarize.py) | Table of standing and walking metrics (with pelvis height) for MuJoCo or Gazebo CSVs |
 
 ```bash

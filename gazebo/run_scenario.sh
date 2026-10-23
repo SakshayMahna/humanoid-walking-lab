@@ -6,11 +6,12 @@
 #   no POLICY_ARGS: Diego's g1_locomotion node (walk_free_elbows.onnx)
 #   POLICY_ARGS:    our g1_policy_runner, e.g. "policy:=unitree clock:=sim"
 # ODOM_LOG=1: also log every odometry message (400 Hz) to recordings/NAME.odom.csv
+# STEP_LOG=1: also log the wall and sim time of every policy step to recordings/NAME.steps.csv
 set -eo pipefail
 
 VX=$1; VY=$2; WZ=$3; SECONDS_TOTAL=$4; STAND=$5; NAME=$6; POLICY_ARGS=$7
 LAB=~/humanoid-walking-lab
-mkdir -p $LAB/recordings
+mkdir -p "$(dirname "$LAB/recordings/$NAME")"
 source /opt/ros/jazzy/setup.bash
 source ~/ros2_ws/install/setup.bash
 
@@ -44,9 +45,11 @@ sim_seconds() { timeout 3 gz topic -e -t /stats -n 1 | awk '/^sim_time/{f=1; nex
 SIM0=$(sim_seconds); WALL0=$(date +%s.%N)
 
 # The logger also publishes /cmd_vel, timed on simulation time (zero for STAND s, then the command)
-ODOM_CSV=""; [ "${ODOM_LOG:-0}" = 1 ] && ODOM_CSV=$LAB/recordings/$NAME.odom.csv
-# shellcheck disable=SC2086  (ODOM_CSV is empty or one path)
-python3 $LAB/gazebo/scenario_logger.py $LAB/recordings/$NAME.csv "$SECONDS_TOTAL" "$STAND" "$VX" "$VY" "$WZ" $ODOM_CSV || true
+LOG_ARGS=""
+[ "${ODOM_LOG:-0}" = 1 ] && LOG_ARGS="--odom $LAB/recordings/$NAME.odom.csv"
+[ "${STEP_LOG:-0}" = 1 ] && LOG_ARGS="$LOG_ARGS --steps $LAB/recordings/$NAME.steps.csv"
+# shellcheck disable=SC2086  (LOG_ARGS is empty or option pairs)
+python3 $LAB/gazebo/scenario_logger.py $LAB/recordings/$NAME.csv "$SECONDS_TOTAL" "$STAND" "$VX" "$VY" "$WZ" $LOG_ARGS || true
 
 SIM1=$(sim_seconds); WALL1=$(date +%s.%N)
 {
