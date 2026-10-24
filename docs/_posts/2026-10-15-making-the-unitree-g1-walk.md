@@ -2,13 +2,15 @@
 title: "Week 2 — Making the G1 Walk"
 excerpt: "Building the Unitree G1 in MuJoCo, running a trained walking policy, and finding out why it could not turn on the spot."
 categories: blog
+redirect_from:
+  - /blog/2026/10/15/week-2.html
 header:
   overlay_image: /assets/images/week-2/banner.png
   overlay_filter: 0.4
   teaser: /assets/images/week-2/banner.png
 ---
 
-Last week I learned MuJoCo with a single pendulum. This week I moved to the real robot. The goal: take the trained walking policy from [Diego López's project](https://github.com/RoboticsLabURJC/2025-tfg-diego-lopez), run it on the Unitree G1 in my own MuJoCo setup, and understand every number that goes in and out.
+Last week I learned MuJoCo with a single pendulum. This week I moved to the real robot. The goal: take the trained walking policy from [Diego López's project](https://github.com/RoboticsLabURJC/2025-tfg-diego-lopez), `walk.onnx`, run it on the Unitree G1 in my own MuJoCo setup, and understand every number that goes in and out.
 
 The robot walked. Then it refused to turn on the spot. Finding out why led me to a second policy, Unitree's own from [unitree_rl_mjlab](https://github.com/unitreerobotics/unitree_rl_mjlab), and a small experiment.
 
@@ -113,7 +115,7 @@ for geom in spec.geoms:
 
 ### Motors and gearboxes
 
-In Week 1, `armature` was just a number I added to a pendulum joint. On the G1 it comes from real hardware. Understanding it took me longer than anything else in the setup.
+In [Week 1]({% post_url 2026-10-10-what-a-pendulum-taught-me-about-humanoid-control %}), `armature` was just a number I added to a pendulum joint. On the G1 it comes from real hardware. Understanding it took me longer than anything else in the setup.
 
 An electric motor spins fast but is weak. A gearbox trades speed for strength. With a gear ratio $$N$$, the joint turns $$N$$ times slower than the motor and gets $$N$$ times the torque. The G1 uses **planetary gearboxes**, each with two stages.
 
@@ -278,7 +280,7 @@ Two details mattered:
 - The policy gives joint angles in **joint order**, but MuJoCo's actuators are in a different order (grouped by motor type). So the targets must be reordered.
 - My first version was **off by one**. MuJoCo counts the robot's free-floating base as joint 0, so a joint's id is one more than its place in the policy's list. A simple test caught it: a zero action must give exactly the starting pose.
 
-![Diego's policy walking in my MuJoCo setup]({{ '/assets/images/week-2/walk_forward.gif' | relative_url }})
+![walk.onnx walking in my MuJoCo setup]({{ '/assets/images/week-2/walk_forward.gif' | relative_url }})
 
 Asked to walk at 0.6 m/s, the robot walked **3.0 m in 6 s** without falling, including the time it takes to get going.
 
@@ -311,9 +313,9 @@ The dead zone stayed every time. Diego's blog doesn't mention it. It seemed to c
 
 ### A second policy
 
-Unitree publishes its own walking policy for the G1, trained with the same framework. It takes 98 numbers instead of 99. It leaves out the linear velocity, which a real robot can't measure directly, and it adds **two** numbers that Diego's policy doesn't have: a **gait phase**. I gave it its own robot model and starting pose, checked its file the same way, and ran the same tests ([`unitree.py`](https://github.com/SakshayMahna/humanoid-walking-lab/blob/main/exercises/07_unitree/unitree.py)):
+Unitree publishes its own walking policy for the G1, trained with the same framework. It takes 98 numbers instead of 99. It leaves out the linear velocity, which a real robot can't measure directly, and it adds **two** numbers that `walk.onnx` doesn't have: a **gait phase**. I gave it its own robot model and starting pose, checked its file the same way, and ran the same tests ([`unitree.py`](https://github.com/SakshayMahna/humanoid-walking-lab/blob/main/exercises/07_unitree/unitree.py)):
 
-| Command | Diego | Unitree |
+| Command | walk.onnx | Unitree |
 |---|---|---|
 | forward 0.2 / 0.3 m/s | 0.00 / 0.00 | **0.22 / 0.31** m/s |
 | forward 0.5 / 0.8 m/s | 0.43 / 0.76 | **0.50 / 0.80** m/s |
@@ -322,9 +324,9 @@ Unitree publishes its own walking policy for the G1, trained with the same frame
 
 **No dead zone.** Unitree's policy walks slowly, steps sideways and turns on the spot, almost exactly as asked.
 
-![Turning on the spot: Diego's policy vs Unitree's]({{ '/assets/images/week-2/deadzone_turn.gif' | relative_url }})
+![Turning on the spot: walk.onnx vs Unitree's policy]({{ '/assets/images/week-2/deadzone_turn.gif' | relative_url }})
 
-![Walking slowly: Diego's policy vs Unitree's]({{ '/assets/images/week-2/deadzone_slow_forward.gif' | relative_url }})
+![Walking slowly: walk.onnx vs Unitree's policy]({{ '/assets/images/week-2/deadzone_slow_forward.gif' | relative_url }})
 
 ### The gait clock
 
@@ -375,15 +377,23 @@ def with_phase(value):
 
 ![Walking slowly with the gait clock normal, off and frozen]({{ '/assets/images/week-2/clock_slow_forward.gif' | relative_url }})
 
-With its clock turned off, **Unitree's policy behaves like Diego's**: it stands still for slow commands, won't turn on the spot, and still walks at 0.6 m/s. With the clock frozen, it loses its rhythm, goes too fast, and falls when it tries to turn. So the clock has to *tick*, not just be there.
+With its clock turned off, **Unitree's policy behaves like `walk.onnx`**: it stands still for slow commands, won't turn on the spot, and still walks at 0.6 m/s. With the clock frozen, it loses its rhythm, goes too fast, and falls when it tries to turn. So the clock has to *tick*, not just be there.
 
 ### What I can and can't say
 
 For Unitree's policy the answer is clear: **the ticking gait clock is what makes it step for small commands**. For bigger commands, the command alone is enough.
 
-For Diego's policy the evidence is strong but indirect. It has no clock, and it behaves like Unitree's policy without its clock. That's my best explanation for its dead zone. But it isn't proof: the two policies were trained with different settings, and Diego's training settings aren't available.
+For `walk.onnx` the evidence is strong but indirect. It has no clock, and it behaves like Unitree's policy without its clock. That's my best explanation for its dead zone. But it isn't proof: the two policies were trained with different settings, and the training settings of `walk.onnx` aren't available.
+
+## What I learned
+
+- **The setup is half the work.** Which parts collide, whose friction wins, and where armature comes from all decide whether the robot in my simulator is the robot the policy was trained on.
+- **Every observation number has to match.** The right frame, the right order and even a 5 ms sensor lag: the policy only knows the world through those 99 numbers.
+- **A missing input can explain a behaviour.** Unitree's policy without its gait clock behaves like `walk.onnx`, which has none: a strong hint, though not proof, of where the dead zone comes from.
 
 ## Next
 
 - **ROS 2 and Gazebo.** Diego's project runs the policy in Gazebo, a different simulator, through a ROS 2 node. I'll set that up (in Docker on my Mac) and see how much of the behavior carries over.
 - **Which policy is better?** "It walks" isn't a measurement. I want proper numbers to compare the two policies: how well they follow commands, how much they drift, how much effort they use, and how they handle pushes and different floors.
+
+I'm using Claude as a tutor for this project. It suggests experiments, explains concepts when I get stuck and reviews my code, while I write most of it myself.

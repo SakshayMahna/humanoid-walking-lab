@@ -2,6 +2,8 @@
 title: "Week 3 — From MuJoCo to Gazebo"
 excerpt: "Running the same walking policies in a second simulator, and finding out why they behave differently."
 categories: blog
+redirect_from:
+  - /blog/2026/10/24/week-3.html
 header:
   overlay_image: /assets/images/week-3/banner.png
   overlay_filter: 0.4
@@ -80,7 +82,7 @@ In Gazebo it's a plugin called `JointPositionController`, set up in the robot's 
 | shoulders, elbows, wrist roll | 14.3 / 0.91 | 17.2 / 1.10 |
 | wrist pitch and yaw | 16.8 / 1.07 | 5.0 / 0.50 |
 
-The ratio $$k_d / k_p$$ is the same in both, so whoever tuned them kept the same natural frequency and damping as training (Week 2) and used larger inertias. I couldn't find where those came from, so I asked on [Luis's repository](https://github.com/luisdbesteiro/gazebo-harmonic-ros/issues/1).
+The ratio $$k_d / k_p$$ is the same in both, so whoever tuned them kept the same natural frequency and damping as training ([Week 2]({% post_url 2026-10-15-making-the-unitree-g1-walk %})) and used larger inertias. I couldn't find where those came from, so I asked on [Luis's repository](https://github.com/luisdbesteiro/gazebo-harmonic-ros/issues/1).
 
 **2. The torque limits.** Mostly the same, except the ankle roll: 10 N·m in Gazebo, 50 in training.
 
@@ -132,7 +134,7 @@ I switched off MuJoCo's own motors and computed the joint torques myself, every 
 
 ### The missing armature
 
-In Week 2 I worked out where armature comes from: the motor's spinning parts, seen through the gearbox, make each joint feel heavier. MuJoCo adds it to every joint. Gazebo's model format has **no armature setting at all**, so in Gazebo the joints are as light as the bare links.
+In [Week 2]({% post_url 2026-10-15-making-the-unitree-g1-walk %}) I worked out where armature comes from: the motor's spinning parts, seen through the gearbox, make each joint feel heavier. MuJoCo adds it to every joint. Gazebo's model format has **no armature setting at all**, so in Gazebo the joints are as light as the bare links.
 
 For most joints that barely matters. For the light ones it's huge: the ankle roll's inertia is 0.0076 kg·m² with armature and 0.0004 without. **95 % of what that joint feels comes from the motor.**
 
@@ -176,7 +178,7 @@ The animation shows one ankle-roll joint, with the real gains and torque limit, 
 ![Explicit vs implicit damping on a light joint (slow motion)]({{ '/assets/images/week-3/explicit_vs_implicit.gif' | relative_url }})
 
 <div class="notice--info" markdown="1">
-**The full stability condition.** With the spring included, this is the condition from the Week 1 pendulum:
+**The full stability condition.** With the spring included, this is the condition from the [Week 1]({% post_url 2026-10-10-what-a-pendulum-taught-me-about-humanoid-control %}) pendulum:
 
 $$
 (\omega_n \Delta t)^2 + \frac{2\,k_d\,\Delta t}{I} < 4, \qquad \omega_n^2 = \frac{k_p}{I}
@@ -239,7 +241,7 @@ Why does Gazebo need the armature when MuJoCo doesn't? I checked the obvious sus
 - **The velocity input.** `walk.onnx` is the only policy that reads the robot's speed, which Gazebo computes differently. I logged every value it received: it matches the true speed exactly, with no extra noise.
 - **The robot itself.** I compared every link's mass and inertia between Gazebo's model and MuJoCo's, and the feet: Gazebo's touch the ground at four small spheres, MuJoCo's with seven capsules. Giving MuJoCo Gazebo's inertias, or Gazebo's feet, changes nothing.
 
-What's left is the physics engine itself (how DART and MuJoCo handle very light joints in contact), and **how each policy was trained**. Unitree's training is quite different: the policy doesn't get the speed as an input, it has a gait clock (Week 2), and it's penalised for moving while it should stand still, for fast joint movements and for falling. Neither was trained with randomized joint dynamics, so neither has learned to cope with joints that feel different.
+What's left is the physics engine itself (how DART and MuJoCo handle very light joints in contact), and **how each policy was trained**. Unitree's training is quite different: the policy doesn't get the speed as an input, it has a gait clock ([Week 2]({% post_url 2026-10-15-making-the-unitree-g1-walk %})), and it's penalised for moving while it should stand still, for fast joint movements and for falling. Neither was trained with randomized joint dynamics, so neither has learned to cope with joints that feel different.
 
 Answering that needs training, which is next week.
 

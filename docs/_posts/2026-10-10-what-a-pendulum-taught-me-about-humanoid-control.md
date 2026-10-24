@@ -2,6 +2,8 @@
 title: "Week 1 — What a Pendulum Taught Me About Humanoid Control"
 excerpt: "Loading the Unitree G1 in MuJoCo, an integrator error I could predict to the millimetre, and what a single pendulum taught me about PD control, stability and actuators."
 categories: blog
+redirect_from:
+  - /blog/2026/10/10/week-1.html
 header:
   overlay_image: /assets/images/week-1/banner.png
   overlay_filter: 0.4
@@ -400,10 +402,17 @@ $$
 
 So each pendulum lesson carries over. Because of steady-state error, the policy has learned to aim *past* the angle it really wants, so that the PD error produces the right torque; change $$K_P$$ and every learned action means a different torque. The G1's gains are computed from each joint's armature, choosing a 10 Hz natural frequency ($$\omega_n = 2\pi \times 10 \approx 62.8$$ rad/s) and a damping ratio of 2, through $$K_P = I\,\omega_n^2$$ and $$K_D = 2\zeta I \omega_n$$, the same formulas as above. Every joint also has a torque limit. Brief saturation is usually fine, but while a joint is saturated its PD torque is clipped and it can't guarantee the damping it was tuned for, so persistent saturation can lead to oscillation. And the timestep and integrator have to match training: the policy acts at 50 Hz on top of 200 Hz physics.
 
+## What I learned
+
+- **Simulation errors can be predicted.** The integrator's error in free fall matched the formula to the millimetre, which made me trust the rest.
+- **PD control stops short, and the policy knows it.** Steady-state error means a policy that outputs joint targets learns to aim past the angle it wants, so changing the gains changes what every action means.
+- **Explicit integration has a speed limit.** Too stiff, too much damping or too large a step and the simulation blows up; implicit integration applies damping with the end-of-step velocity and doesn't have that limit.
+
 ## How I'm learning
 
 I'm using Claude as a tutor for this project. It suggests the next exercise, explains concepts when I get stuck, and reviews my code, while I write most of it myself. Having something that walks me through a structured sequence and asks "why do you think that happened?" has made a big difference to how quickly I get from confusion to understanding.
 
-## Next week
+## Next
 
-Next week I'll build the full G1 setup in plain MuJoCo: a floor, 29 position actuators with the right gains, the starting pose, the 99-number observation and the 50 Hz control loop. Then I'll load the trained policy and, hopefully, watch it walk.
+- **The full G1 in plain MuJoCo.** A floor, 29 position actuators with the right gains, the starting pose, the 99-number observation and the 50 Hz control loop.
+- **The trained policy.** Load it and, hopefully, watch the G1 walk.

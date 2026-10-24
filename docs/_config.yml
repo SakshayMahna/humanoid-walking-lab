@@ -1,14 +1,27 @@
 title: Humanoid Walking Lab
-description: "Weekly notes on learning humanoid locomotion with MuJoCo and PyTorch"
+description: "Weekly notes on learning humanoid robot locomotion: the Unitree G1 in MuJoCo, trained walking policies, sim-to-sim transfer to Gazebo and reinforcement learning, explained step by step with code."
 url: "https://sakshaymahna.github.io"
 baseurl: "/humanoid-walking-lab"
 repository: "SakshayMahna/humanoid-walking-lab"
+locale: "en-US"
+# Google Search Console ownership (public value; the theme adds it as a meta tag on every page)
+google_site_verification: "A0xslERn8BqEreJM2RG30G1kGSW-HGMxbFZChRYKM20"
+
+# Author metadata (used by the theme for page meta tags and structured data)
+author:
+  name: "Sakshay Mahna"
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/SakshayMahna"
 
 remote_theme: mmistakes/minimal-mistakes@4.26.2
 minimal_mistakes_skin: dark
 search: true
 
 markdown: kramdown
+# Readable post URLs from the file name (the title), e.g. /blog/from-mujoco-to-gazebo/
+permalink: /blog/:title/
 timezone: Asia/Kolkata
 
 paginate: 10
@@ -23,6 +36,8 @@ plugins:
   - jekyll-include-cache
   - jekyll-paginate
   - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-redirect-from
 
 defaults:
   - scope:

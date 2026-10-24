@@ -251,15 +251,15 @@ def robot_gifs():
 
     # 1. It walks
     save(panel(d_model, d_data, diego, [0.6, 0, 0], 6.0, "command: 0.6 m/s forward", 640, 400),
-         "walk_forward.gif", "Diego's policy in my MuJoCo setup: 3.0 m in 6 s")
+         "walk_forward.gif", "walk.onnx in my MuJoCo setup: 3.0 m in 6 s")
 
-    # 2. Dead zone: Diego | Unitree
+    # 2. Dead zone: walk.onnx | Unitree
     for name, cmd, title in (("deadzone_turn.gif", [0, 0, 0.8], "Turn in place (0.8 rad/s)"),
                              ("deadzone_slow_forward.gif", [0.3, 0, 0], "Slow forward (0.3 m/s)"),
                              ("deadzone_slow_sideways.gif", [0, 0.3, 0], "Slow sideways (0.3 m/s)")):
-        frames = side_by_side([panel(d_model, d_data, diego, cmd, 4.0, "Diego", 480, 340),
+        frames = side_by_side([panel(d_model, d_data, diego, cmd, 4.0, "walk.onnx", 480, 340),
                                panel(u_model, u_data, unitree, cmd, 4.0, "Unitree", 480, 340)])
-        save(frames, name, f"{title}: Diego (left) vs Unitree (right)")
+        save(frames, name, f"{title}: walk.onnx (left) vs Unitree (right)")
 
     # 3. Gait clock experiment on Unitree's policy: normal | off | frozen
     def with_phase(value):
