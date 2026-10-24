@@ -115,7 +115,7 @@ for geom in spec.geoms:
 
 ### Motors and gearboxes
 
-In [Week 1]({% post_url 2026-10-10-what-a-pendulum-taught-me-about-humanoid-control %}), `armature` was just a number I added to a pendulum joint. On the G1 it comes from real hardware. Understanding it took me longer than anything else in the setup.
+In [Week 1]({{ site.baseurl }}{% post_url 2026-10-10-what-a-pendulum-taught-me-about-humanoid-control %}), `armature` was just a number I added to a pendulum joint. On the G1 it comes from real hardware. Understanding it took me longer than anything else in the setup.
 
 An electric motor spins fast but is weak. A gearbox trades speed for strength. With a gear ratio $$N$$, the joint turns $$N$$ times slower than the motor and gets $$N$$ times the torque. The G1 uses **planetary gearboxes**, each with two stages.
 
