@@ -50,10 +50,11 @@ Weekly write-ups: **[sakshaymahna.github.io/humanoid-walking-lab](https://saksha
 | [`notes/`](notes/) | Research notes: policy comparison, Gazebo experiment log, MuJoCo vs Gazebo differences |
 | [`open_questions/`](open_questions/) | One folder per open question: scripts, results and reasoning (Q1-Q3, Q6 done; Q2 Gazebo side narrowed down; Q5 asked upstream) |
 | [`training/`](training/) | Training our own G1 policies with mjlab on Kaggle (tutorial notebook, pushed with the Kaggle CLI), plus MuJoCo/Gazebo evaluation of trained policies |
+| [`classical/`](classical/) | Classical control course for humanoid walking (Track 2): syllabus, then one folder per module |
 | [`docs/`](docs/) | The blog (Jekyll, GitHub Pages) and the scripts that generate its images and videos |
 | `3p/` | Third-party repositories used as references (not tracked, see below) |
 | `recordings/` | Gazebo logs and videos (not tracked; regenerate with the `gazebo/` scripts) |
-| [`PLAN.md`](PLAN.md) | The original day-by-day plan |
+| [`PLAN.md`](PLAN.md) | Current plan: training from scratch (Track 1), classical control for humanoids (Track 2), and what is done |
 
 ## Setup
 
