@@ -50,6 +50,7 @@ def main():
     twist.ranges.lin_vel_y = (0.0, 0.0)
     twist.ranges.ang_vel_z = (0.0, 0.0)
     twist.heading_command = False
+    twist.ranges.heading = None                   # mjlab rejects a heading range without heading control
     twist.rel_standing_envs = 0.0
     twist.resampling_time_range = (1e6, 1e6)      # never resample: the command stays what we set
 
