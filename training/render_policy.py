@@ -78,8 +78,9 @@ def main(paths):
     model, data, joints, actuators = build_unitree_model(decorate=scenery)
     policies = [("Unitree's policy", "unitree", UNITREE_POLICY)]
     for p in paths:
-        run = Path(p).parent.name
-        policies.append((f"Ours: {run.rsplit('_', 1)[-1]}", run, Path(p)))
+        run = Path(p).parent.name                                   # <date>_<time>_<variant>_seed<n>
+        name = run.split("_", 2)[2] if run.count("_") >= 2 else run
+        policies.append((name, run, Path(p)))
     tiles = []
     for title, label, path in policies:
         policy = load_policy(path, joints, actuators, pose=HOME, obs_fn=make_unitree_observation)
@@ -88,7 +89,7 @@ def main(paths):
         tiles.append(f"{title}|{video}")
         print("rendered", video.name)
     subprocess.run([sys.executable, str(REPO / "gazebo" / "side_by_side.py"), str(OUT / "mujoco_compare.mp4"),
-                    "--title", "MuJoCo: Unitree's policy vs ours (Kaggle, 3000 iterations), same commands",
+                    "--title", "MuJoCo (plain, CPU): Unitree's released policy vs our trained runs, same commands",
                     "--seconds", str(seconds), *tiles], check=True)
 
 
