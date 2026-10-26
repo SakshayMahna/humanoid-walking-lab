@@ -232,9 +232,33 @@ recovers from pushes like the full set; actions are even a little smoother (0.34
 holds the robot still at zero command. It might matter for disturbances while standing, which these tests don't
 include.
 
+### Leave one out: the two smoothness terms (`loo_action_rate_l2`, `loo_joint_acc_l2`)
+
+Ladder step 3 added both at once, and the robot stood up. Which one matters?
+
+| | Full set | − `action_rate_l2` | − `joint_acc_l2` |
+|---|---|---|---|
+| action rate (plain MuJoCo) | 0.43 | **0.95** | 0.41 |
+| joint-acceleration penalty in training | −0.07 | **−0.34** (5×) | (not in the reward) |
+| turning, command 0.5 rad/s | 0.44 | **0.15** | 0.50 |
+| turning reward in training | 0.57 | **0.23** | 0.58 |
+| forward 0.5 m/s | 0.49 | 0.42 | 0.46 |
+| mechanical power | 72 W | 76 W | 60 W |
+| total training reward | 32.3 | **22.4** | 33.3 |
+
+**Without `action_rate_l2`** the policy is jittery: its actions change twice as much from step to step, and during
+training its joints accelerate so violently that the joint-acceleration penalty grows five-fold. **Turning breaks**
+(0.15 rad/s for a 0.5 command, in training and in plain MuJoCo), while walking straight still works and it survives
+pushes. Without `joint_acc_l2`, nothing gets worse; the walk is even a little cheaper.
+
+**So `action_rate_l2` does the smoothing work**, and `joint_acc_l2` adds little on top of it (its weight, 2.5e-7, is
+tiny next to the accelerations involved, and smooth actions already mean smooth joints). It is also the more likely of
+the two to be what made the robot stand up at ladder step 3, but that is a reading, not a result: step 3 added both
+terms, and a ladder step with only one of them would be needed to show it.
+
 ### More leave-one-out runs, observations
 
-Pending (rounds 7 onwards).
+Pending (rounds 8 onwards).
 
 ## Log
 
@@ -246,4 +270,5 @@ Pending (rounds 7 onwards).
 | 4 | 8 | `ladder_5`, `ladder_6` | done (`ladder_6` video failed: EGL device fix) |
 | 5 | 9 | `ladder_7`, `loo_foot_gait`, + video of `ladder_6` | done |
 | 6 | 10 | `loo_stand_still`, `loo_pose` | done |
-| 7 | 11 | `loo_action_rate_l2`, `loo_joint_acc_l2` | running |
+| 7 | 11 | `loo_action_rate_l2`, `loo_joint_acc_l2` | done |
+| 8 | 12 | `loo_foot_slip`, `loo_foot_clearance` | running |
