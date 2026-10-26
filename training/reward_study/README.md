@@ -75,7 +75,7 @@ collapses**: from 0.18 at iteration 150 it falls steadily to 0.09 by iteration 1
 1. **Tracking alone is not enough for a usable policy.** Both policies keep the robot up in their training simulator
    but collapse within seconds in plain MuJoCo, where the full reward set works (and transfers to Gazebo). The likely
    reason: without smoothness and posture terms, the policy finds jerky, high-frequency control that balances only in
-   the exact simulator it was trained in. The videos in the training simulator (round 3) will show how they move.
+   the exact simulator it was trained in. The videos in the training simulator (round 3) will show how they move. Step 2 (pose) fails the same way.
 2. **Terms compete.** Adding the upright penalty made the policy give up turning: turning probably needs some torso
    tilt or rocking, and the cheapest way to avoid the penalty was to turn less.
 3. **Fewer terms, faster learning to survive.** Steps 0-1 stay up three times sooner than the full set; the full set
@@ -85,14 +85,50 @@ collapses**: from 0.18 at iteration 150 it falls steadily to 0.09 by iteration 1
 **To check:** a second seed for step 1 (is the turning collapse real?), and the 1000-iteration budget (step 0 was still
 changing at 1000).
 
-### Steps 2-8, leave-one-out, observations
+### The reference: full reward set at 1000 iterations (`baseline`, round 2)
 
-Pending (rounds 2 onwards).
+**Training:** episodes reach the 20 s limit by about iteration 250-300 (later than steps 0-2: it has 16 goals at
+once). Mean reward 32.3 at iteration 1000 (39.2 after 3000).
+
+**Plain MuJoCo:** walks properly. Stands still (0.00 m in 12 s), tracks 0.2 / 0.5 / 1.0 m/s as 0.24 / 0.49 / 0.96,
+sideways 0.20, turning 0.44 rad/s; survives all four pushes; walks on friction 0.3 and 1.2. Compared with the same
+setup after 3000 iterations: the same behaviour, slightly *better* at slow speed (0.24 vs 0.18 at 0.2 m/s), a little
+lower feet (3.5 vs 4.8 cm clearance). Like every trained run so far (but not Unitree's released policy), it falls
+standing still without armature.
+
+**So 1000 iterations is enough for the full reward set**, and this run is the reference every ladder step is compared
+with.
+
+### Step 2: + pose (`ladder_2`)
+
+**Prediction:** the robot keeps a posture near the default (knees slightly bent, arms down), and maybe transfers
+better to plain MuJoCo because a familiar posture is a stable one.
+
+**Training:** the pose reward rises to 0.09 by iteration 110, while the robot learns to stay up, then **falls back to
+zero** (0.0004 at iteration 500, 0.0000 at 1000). The policy abandons the default posture for one that tracks better.
+Tracking is only slightly better than step 1 (forward 0.40, turning 0.12). Total reward 9.8.
+
+**Plain MuJoCo:** falls in every test, like steps 0-1.
+
+**Why the pose reward stops working:** it is $$\exp(-\text{mean}((q-q_0)^2/\sigma^2))$$ with tight tolerances (0.05 rad
+when standing, 0.1-0.5 rad when walking). Close to the default pose it pays well and pulls the joints back; far from it,
+the reward and its gradient are both practically zero, so there is nothing left to pull with. Once the policy drifted
+away (while learning to stay up and to track), the pose term could no longer bring it back. In the full reward set the
+same term rises steadily to 0.71: there, other terms keep the posture close enough for it to keep working, in particular
+`stand_still`, a squared penalty that keeps growing the further the joints are from the default, and the smoothness and
+gait terms.
+
+**Lesson:** an exponential ("Gaussian") reward only guides a policy that is already near its target. It needs either a
+wider tolerance, or another term that brings the policy into its range.
+
+### Steps 3-8, leave-one-out, observations
+
+Pending (rounds 3 onwards).
 
 ## Log
 
 | Round | Notebook version | Runs | Status |
 |---|---|---|---|
 | 1 | 5 | `ladder_0`, `ladder_1` | done |
-| 2 | 6 | `baseline` (1000 it), `ladder_2` | running |
-| 3 | 7 | `ladder_3`, `ladder_4`, + training-simulator videos of `ladder_0`, `ladder_1` | next |
+| 2 | 6 | `baseline` (1000 it), `ladder_2` | done (videos failed: fixed for round 3) |
+| 3 | 7 | `ladder_3`, `ladder_4`, + training-simulator videos of `ladder_0`-`ladder_2` and `baseline` | running |
