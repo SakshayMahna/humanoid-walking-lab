@@ -10,7 +10,9 @@
   "enable_tpu": false,
   "enable_internet": true,
   "keywords": [],
-  "dataset_sources": [],
+  "dataset_sources": [
+    "sakshaymahna/g1-walking-runs"
+  ],
   "kernel_sources": [],
   "competition_sources": [],
   "model_sources": [],

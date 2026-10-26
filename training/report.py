@@ -211,11 +211,12 @@ def evaluate(robot, path):
     return rows
 
 
-def main(run_dirs):
+def run_report(run_dirs, labels=None):
+    """Evaluate the runs (plus Unitree's released policy); returns the markdown table."""
     robot = Robot()
     columns = {"Unitree (released)": (UNITREE_POLICY, {})}
-    for r in map(Path, run_dirs):
-        label = r.name.split("_", 2)[2] if r.name.count("_") >= 2 else r.name
+    for k, r in enumerate(map(Path, run_dirs)):
+        label = labels[k] if labels else (r.name.split("_", 2)[2] if r.name.count("_") >= 2 else r.name)
         columns[label] = (r / "policy.onnx", training_log(r))
     results = {}
     for label, (path, train) in columns.items():
@@ -225,6 +226,12 @@ def main(run_dirs):
     names = list(dict.fromkeys(k for r in results.values() for k in r))
     lines = ["| | " + " | ".join(results) + " |", "|---|" + "---|" * len(results)]
     lines += ["| " + n + " | " + " | ".join(str(results[c].get(n, "")) for c in results) + " |" for n in names]
+    return "\n".join(lines)
+
+
+def main(run_dirs):
+    table = run_report(run_dirs)
+    lines = table.split("\n")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
