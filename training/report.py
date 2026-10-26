@@ -26,7 +26,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "exercises"))
 sys.path.insert(0, str(REPO / "training"))
-from evaluate_policy import COMMANDS, SECONDS, run as track  # noqa: E402
+from evaluate_policy import COMMANDS, SECONDS, run as track, unstable  # noqa: E402
 from policy_utils import load_policy  # noqa: E402
 from unitree_utils import HOME, UNITREE_POLICY, build_unitree_model, make_unitree_observation  # noqa: E402
 
@@ -83,6 +83,8 @@ def walk(robot, policy, command, seconds=14.0, measure_from=6.0, push=None):
                 log["action_rate"].append(float(np.sum((action - prev_action) ** 2)))
             prev_action, last_action = action, action
         mujoco.mj_step(m, d)
+        if unstable(d):                    # MuJoCo blew up and reset the robot: nothing valid to measure
+            return None, True
         fell |= d.qpos[2] < 0.4
         if d.time < measure_from:
             continue
@@ -171,10 +173,13 @@ def evaluate(robot, path):
     robot.reset_physics()
     for name in ("stand", "vx 0.2", "vx 0.5", "vx 1.0", "vy 0.3", "wz 0.5"):
         vx, vy, wz, moved, fell = track(m, d, policy, COMMANDS[name], SECONDS)
-        rows[f"tracking: {name}"] = ("fell" if fell else f"{moved:.2f} m" if name == "stand" else
+        rows[f"tracking: {name}"] = ("unstable" if fell and np.isnan(moved) else "fell" if fell else f"{moved:.2f} m" if name == "stand" else
                                      f"{wz:+.2f} rad/s" if name.startswith("wz") else
                                      f"{vy:+.2f} m/s" if name.startswith("vy") else f"{vx:+.2f} m/s")
     log, fell = walk(robot, policy, [0.5, 0, 0])
+    if log is None or fell:
+        rows["gait, effort, posture at 0.5 m/s"] = "unstable" if log is None else "fell"
+        return rows
     g = gait(log, dt)
     rows.update({"gait: steps per second": f"{g['steps_per_s']:.2f}", "gait: air time per step (s)": f"{g['air_time']:.2f}",
                  "gait: foot clearance (cm)": f"{g['clearance_cm']:.1f}", "gait: foot slip in stance (cm/s)": f"{g['slip_cm_s']:.1f}",
@@ -195,13 +200,13 @@ def evaluate(robot, path):
         for g_id in robot.friction:
             m.geom_friction[g_id, 0] = mu
         vx, vy, wz, moved, fell = track(m, d, policy, COMMANDS["vx 0.5"], SECONDS)
-        rows[f"robustness: friction {mu}, vx 0.5"] = "fell" if fell else f"{vx:+.2f} m/s"
+        rows[f"robustness: friction {mu}, vx 0.5"] = ("unstable" if np.isnan(moved) else "fell") if fell else f"{vx:+.2f} m/s"
     robot.reset_physics()
     m.dof_armature[:] = 0.0
     vx, vy, wz, moved, fell = track(m, d, policy, COMMANDS["stand"], SECONDS)
-    rows["robustness: no armature, stand"] = "fell" if fell else f"{moved:.2f} m"
+    rows["robustness: no armature, stand"] = ("unstable" if np.isnan(moved) else "fell") if fell else f"{moved:.2f} m"
     vx, vy, wz, moved, fell = track(m, d, policy, COMMANDS["vx 0.5"], SECONDS)
-    rows["robustness: no armature, vx 0.5"] = "fell" if fell else f"{vx:+.2f} m/s"
+    rows["robustness: no armature, vx 0.5"] = ("unstable" if np.isnan(moved) else "fell") if fell else f"{vx:+.2f} m/s"
     robot.reset_physics()
     return rows
 

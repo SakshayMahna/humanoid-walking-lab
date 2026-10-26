@@ -29,8 +29,15 @@ COMMANDS = {"stand": (0.0, 0.0, 0.0), "vx 0.2": (0.2, 0.0, 0.0), "vx 0.3": (0.3,
             "wz 0.5": (0.0, 0.0, 0.5)}
 
 
+def unstable(data):
+    """True once MuJoCo has flagged non-finite or huge accelerations or velocities (it then resets the state)."""
+    return any(data.warning[w].number > 0 for w in (mujoco.mjtWarning.mjWARN_BADQACC, mujoco.mjtWarning.mjWARN_BADQVEL,
+                                                    mujoco.mjtWarning.mjWARN_BADQPOS))
+
+
 def run(model, data, policy, command, seconds):
-    """Returns (mean vx, vy in the pelvis frame over the last MEASURE s, mean yaw rate, distance moved, fell)."""
+    """Returns (mean vx, vy in the pelvis frame over the last MEASURE s, mean yaw rate, distance moved, fell).
+    If the simulation becomes unstable, returns NaNs and fell = True."""
     mujoco.mj_resetDataKeyframe(model, data, model.key("init_state").id)
     mujoco.mj_forward(model, data)
     command = np.array(command)
@@ -44,6 +51,8 @@ def run(model, data, policy, command, seconds):
             data.ctrl[:] = (policy["default_pos"] + policy["action_scale"] * action)[policy["joint_index_of_actuator"]]
             last_action = action
         mujoco.mj_step(model, data)
+        if unstable(data):                 # MuJoCo blew up (and reset the robot itself): report, don't measure
+            return np.nan, np.nan, np.nan, np.nan, True
         fell |= data.qpos[2] < 0.4
         if data.time >= seconds - MEASURE:
             R = np.zeros(9)
