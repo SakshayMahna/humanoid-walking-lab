@@ -11,7 +11,8 @@
   "enable_internet": true,
   "keywords": [],
   "dataset_sources": [
-    "sakshaymahna/g1-walking-runs"
+    "sakshaymahna/g1-walking-runs",
+    "sakshaymahna/g1-walking-runs-v6"
   ],
   "kernel_sources": [],
   "competition_sources": [],
