@@ -201,9 +201,40 @@ far to `walk.onnx`'s dead zone (Week 2): it was trained without a gait clock or 
 **A pattern to check:** the only trained policies that stand still without armature (as in Gazebo) are the two
 without `foot_gait` (step 3 and this one). Two cases are not enough to call it a cause.
 
+### Leave one out: without `pose` (`loo_pose`)
+
+**Prediction:** the posture drifts (it did in step 2, where the pose term was "dead" while sitting), but with the
+other terms present the robot still walks.
+
+**What happened:** it walks and tracks normally, but in an unusual and expensive way. **The arms swing hard**:
+
+| Mean distance from the default pose while walking (rad) | legs | waist | shoulders | elbows | wrists |
+|---|---|---|---|---|---|
+| full set | 0.07 | 0.02 | 0.03 | 0.01 | 0.01 |
+| full set − `pose` | 0.12 | 0.05 | **0.29** | **0.25** | **0.20** |
+
+With the arms swinging, mechanical power doubles (144 vs 72 W), and actions are jumpier (action rate 0.77 vs
+0.43). The feet also lift twice as high (7.1 vs 3.5 cm, about the same as Unitree's released policy). Tracking,
+pushes and friction are fine.
+
+Nothing else in the reward set says anything about the arms. Walking doesn't need them, so without `pose` they are
+free, and the policy uses them (likely for balance and for momentum when turning). **The pose term is mainly what keeps
+the upper body still**, and with it the energy use low. (In the add-one-in ladder, step 2, the same term did nothing:
+the robot sat down, out of the pose reward's narrow range. Its job only exists once the robot walks.)
+
+### Leave one out: without `stand_still` (`loo_stand_still`)
+
+**Prediction:** more fidgeting or drift when standing.
+
+**What happened:** no measurable difference from the full set. It stands still (0.01 m in 12 s), walks, steps and
+recovers from pushes like the full set; actions are even a little smoother (0.34 vs 0.43). Like step 6 of the ladder,
+**`stand_still` has no visible job in these tests**: `pose` (with its tight 0.05 rad standing tolerance) already
+holds the robot still at zero command. It might matter for disturbances while standing, which these tests don't
+include.
+
 ### More leave-one-out runs, observations
 
-Pending (rounds 6 onwards).
+Pending (rounds 7 onwards).
 
 ## Log
 
@@ -214,4 +245,5 @@ Pending (rounds 6 onwards).
 | 3 | 7 | `ladder_3`, `ladder_4`, + training-simulator videos of `ladder_0`-`ladder_2` and `baseline` | done (6 videos took 80 min: now every 2nd frame, both GPUs) |
 | 4 | 8 | `ladder_5`, `ladder_6` | done (`ladder_6` video failed: EGL device fix) |
 | 5 | 9 | `ladder_7`, `loo_foot_gait`, + video of `ladder_6` | done |
-| 6 | 10 | `loo_stand_still`, `loo_pose` | running |
+| 6 | 10 | `loo_stand_still`, `loo_pose` | done |
+| 7 | 11 | `loo_action_rate_l2`, `loo_joint_acc_l2` | running |
