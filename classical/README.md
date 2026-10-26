@@ -19,6 +19,10 @@ Centroidal Dynamics* (TU Darmstadt seminar).
   MuJoCo; every lab ends with a "done when" check against an analytic answer or a reference library.
 - **Not rewritten:** the simulator (MuJoCo) and QP/NLP solvers (OSQP through `qpsolvers`, CasADi + IPOPT).
 - **Toy model first, G1 second.** Each idea runs on the smallest system that shows it.
+- **TODO mechanism.** Each lab script has `TODO` functions (raising `NotImplementedError`) and given checks.
+  Running it executes the parts in order and stops at the first unfinished TODO, so every finished part is
+  re-checked on each run. Outputs go to the module's `results/` (not tracked). Extra packages:
+  `.venv/bin/pip install scipy matplotlib`.
 - **Every module ends with a "for learning" link:** a reward term, an observation, or a tool from that
   module, used in Track 1.
 
