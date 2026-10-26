@@ -48,42 +48,84 @@ for `foot_slip`). Weights as in Unitree's G1 config.
 
 ## Results
 
-### Step 0: velocity tracking only (`ladder_0`)
+![Steps 0-4 and the full set in their training simulator](images/training_sim_steps0-4.jpg)
 
-**Prediction:** it learns to move in some way, probably ugly (lunging, shuffling), possibly unable to stand still.
+*Each policy in its own training simulator (MuJoCo Warp), standing for 4 s, then told to walk at 0.5 m/s.*
 
-**Training:** it learns to stay up fast. Episodes reach the 20 s limit by about iteration 70 (the full baseline needs
-about 250: with 16 terms there is much more to satisfy at once). Forward tracking settles at 0.37 (the baseline
-reaches 0.77 after 3000 iterations), and turning stays at about 0.2, then jumps to 0.45 between iterations 850 and 1000:
-it was still learning when training stopped.
+| Policy (1000 it) | Pelvis height in training sim | Speed at 0.5 m/s command (training sim) | Plain MuJoCo |
+|---|---|---|---|
+| step 0: tracking only | 0.11 m (lying on its back) | 0.00 m/s | "falls" (pelvis below 0.4 m) |
+| step 1: + upright | 0.14 m (sitting, propped on its arms) | 0.07 m/s | "falls" |
+| step 2: + pose | 0.14 m (sitting upright) | 0.03 m/s | "falls" |
+| step 3: + smoothness | 0.79 m | 0.46 m/s | walks (shuffling) |
+| step 4: + foot gait | 0.78 m | 0.53 m/s | walks |
+| full set (baseline) | 0.78 m | 0.48 m/s | walks |
 
-**Plain MuJoCo:** falls in every test, within about 2.5 s even when told to stand still, and in some tests drives
-the simulation unstable (infinite accelerations).
+### Steps 0-2: the robot learns to sit down (`ladder_0`, `ladder_1`, `ladder_2`)
 
-### Step 1: + upright (`ladder_1`)
+**Predictions:** step 0 moves in some ugly way; step 1 keeps the torso upright; step 2 keeps a posture near the default.
 
-**Prediction:** the torso stays upright; otherwise like step 0.
+**What they learned instead: to sit or lie on the floor and do (almost) nothing.** Step 0 lies on its back with its
+legs in the air, step 1 sits propped on its arms, step 2 sits upright. None of them ever walks (0.00-0.07 m/s when
+told to walk at 0.5 m/s). During training their episodes almost always reach the 20 s limit, as if they never fall.
 
-**Training:** the tilt penalty is large at first (the robot leans while learning to stay up) and drops to almost zero
-by iteration 200: it does learn to keep the torso upright. Forward tracking is unchanged (0.37), but **turning
-collapses**: from 0.18 at iteration 150 it falls steadily to 0.09 by iteration 1000. Total reward 8.6 vs 17.1 for step 0.
+**Why this is the best strategy the rewards allow:**
 
-**Plain MuJoCo:** falls in every test, like step 0.
+1. **The fall check ignores height.** An episode ends (with the −200 `is_terminated` penalty) only when the pelvis
+   tilts more than 70°. Sitting or lying with the pelvis fairly upright is never a "fall".
+2. **The tracking rewards pay for doing nothing.** They are $$\exp(-\text{error}^2/\sigma^2)$$: a robot that never moves
+   still gets $$\exp(-c^2/\sigma^2)$$. Averaged over the training commands (forward −0.5 to 1.0 m/s, sideways ±0.5,
+   turning ±1 rad/s, 5 % standing), a robot that never moves collects **43 % of the maximum linear-tracking reward
+   and 62 % of the angular one**, at every step.
+3. So sitting down is safe (no fall penalty, ever) and pays almost half of what walking would. Learning to walk
+   needs a long phase of falling (−200 each time) before it pays more. With only the tracking rewards, PPO settles on
+   sitting: it learns to "survive" by iteration ~70, three times sooner than the full reward set needs to stand.
 
-### What steps 0-1 show so far
+**What the extra terms changed:** the upright term (step 1) made the robot sit up instead of lying on its back, and
+it reduced turning (the turning reward fell from 0.18 to 0.09: turning while sitting means rocking, which the upright
+term penalizes). The pose term (step 2) paid briefly while the robot was still upright (0.09 at iteration 110) and
+then nothing once it sat down: see "Why the pose reward stops working" below.
 
-1. **Tracking alone is not enough for a usable policy.** Both policies keep the robot up in their training simulator
-   but collapse within seconds in plain MuJoCo, where the full reward set works (and transfers to Gazebo). The likely
-   reason: without smoothness and posture terms, the policy finds jerky, high-frequency control that balances only in
-   the exact simulator it was trained in. The videos in the training simulator (round 3) will show how they move. Step 2 (pose) fails the same way.
-2. **Terms compete.** Adding the upright penalty made the policy give up turning: turning probably needs some torso
-   tilt or rocking, and the cheapest way to avoid the penalty was to turn less.
-3. **Fewer terms, faster learning to survive.** Steps 0-1 stay up three times sooner than the full set; the full set
-   pays for its extra goals early (every penalty gets worse during iterations 0-250 while the robot learns to stay up,
-   then improves).
+**Correction:** after round 1, from the plain-MuJoCo results alone, I guessed these policies balanced with jerky control
+that only works in their own simulator. The videos show they never balanced at all: they sat down. Plain MuJoCo
+reported "falls" because my evaluation counts a pelvis below 0.4 m as a fall.
 
-**To check:** a second seed for step 1 (is the turning collapse real?), and the 1000-iteration budget (step 0 was still
-changing at 1000).
+**Why the pose reward stops working (step 2):** it is $$\exp(-\text{mean}((q-q_0)^2/\sigma^2))$$ with tight
+tolerances (0.05 rad when standing, 0.1-0.5 rad when walking). Close to the default pose it pays and pulls the joints
+back; far from it (sitting), the reward and its gradient are practically zero. In the full set the same term rises
+steadily to 0.71, because the robot stays near the default pose there.
+
+**Lesson:** a reward is only as good as its loopholes. "Don't fall" defined as "don't tilt" allows sitting, and an
+exponential tracking reward pays for standing still. Exponential ("Gaussian") rewards also only guide a policy that is
+already close to their target.
+
+### Step 3: + smoothness (`ladder_3`: `action_rate_l2`, `joint_acc_l2`)
+
+**Prediction:** less jitter; the sitting strategy probably stays.
+
+**What it learned: to stand up and walk**, the first policy that does. In plain MuJoCo it stands still (0.01 m),
+walks at 0.49 m/s (command 0.5) and 0.90 (command 1.0), steps sideways (0.24) and turns (0.44 rad/s), survives all
+four pushes, and walks on friction 0.3 and 1.2. Training rewards: tracking 0.77 / 0.67, pose 0.80 (higher than the
+full set: it stays closest to the default pose).
+
+**But it shuffles.** 6.1 steps per second with 0.09 s in the air per step, feet lifted only 1.4 cm, sliding 16 cm/s
+while on the ground, both feet down 39 % of the time (baseline: 3.3 steps/s, 0.25 s, 3.5 cm, 5 cm/s, 17 %). It also
+has **a dead zone**: at 0.2 m/s it barely moves (0.07 m/s), like `walk.onnx` in Week 2, which was also trained without
+a gait reward. And it is the only trained policy so far that stands still **without armature** (0.03 m).
+
+**Why smoothness turned sitting into standing** is not clear from one run; the most likely reading is that sitting and
+lying policies rely on large, fast joint motions (getting down, rocking, propping), which these terms make expensive,
+so standing became the cheaper way to keep the tracking reward. To check: a second seed, and the leave-one-out runs.
+
+### Step 4: + foot gait (`ladder_4`)
+
+**Prediction:** proper alternating steps on the gait clock's rhythm.
+
+**What it learned:** exactly that. 3.38 steps per second (the gait clock's 0.6 s period: one step per foot per
+period), 0.25 s in the air, 2.5 cm clearance, 5.5 cm/s slip, 16 % double support. **The dead zone disappears**
+(0.24 m/s at a 0.2 command): the gait reward makes the policy step even when the command is small. This is the Week 2
+gait-clock result seen from the reward side. Its walking is already close to the full set; it loses the ability to
+stand without armature.
 
 ### The reference: full reward set at 1000 iterations (`baseline`, round 2)
 
@@ -99,31 +141,9 @@ standing still without armature.
 **So 1000 iterations is enough for the full reward set**, and this run is the reference every ladder step is compared
 with.
 
-### Step 2: + pose (`ladder_2`)
+### Steps 5-8, leave-one-out, observations
 
-**Prediction:** the robot keeps a posture near the default (knees slightly bent, arms down), and maybe transfers
-better to plain MuJoCo because a familiar posture is a stable one.
-
-**Training:** the pose reward rises to 0.09 by iteration 110, while the robot learns to stay up, then **falls back to
-zero** (0.0004 at iteration 500, 0.0000 at 1000). The policy abandons the default posture for one that tracks better.
-Tracking is only slightly better than step 1 (forward 0.40, turning 0.12). Total reward 9.8.
-
-**Plain MuJoCo:** falls in every test, like steps 0-1.
-
-**Why the pose reward stops working:** it is $$\exp(-\text{mean}((q-q_0)^2/\sigma^2))$$ with tight tolerances (0.05 rad
-when standing, 0.1-0.5 rad when walking). Close to the default pose it pays well and pulls the joints back; far from it,
-the reward and its gradient are both practically zero, so there is nothing left to pull with. Once the policy drifted
-away (while learning to stay up and to track), the pose term could no longer bring it back. In the full reward set the
-same term rises steadily to 0.71: there, other terms keep the posture close enough for it to keep working, in particular
-`stand_still`, a squared penalty that keeps growing the further the joints are from the default, and the smoothness and
-gait terms.
-
-**Lesson:** an exponential ("Gaussian") reward only guides a policy that is already near its target. It needs either a
-wider tolerance, or another term that brings the policy into its range.
-
-### Steps 3-8, leave-one-out, observations
-
-Pending (rounds 3 onwards).
+Pending (rounds 4 onwards).
 
 ## Log
 
@@ -131,4 +151,5 @@ Pending (rounds 3 onwards).
 |---|---|---|---|
 | 1 | 5 | `ladder_0`, `ladder_1` | done |
 | 2 | 6 | `baseline` (1000 it), `ladder_2` | done (videos failed: fixed for round 3) |
-| 3 | 7 | `ladder_3`, `ladder_4`, + training-simulator videos of `ladder_0`-`ladder_2` and `baseline` | running |
+| 3 | 7 | `ladder_3`, `ladder_4`, + training-simulator videos of `ladder_0`-`ladder_2` and `baseline` | done (6 videos took 80 min: now every 2nd frame, both GPUs) |
+| 4 | 8 | `ladder_5`, `ladder_6` | running |
