@@ -165,9 +165,45 @@ iteration baselines differ by 0.1 cm in clearance, 0.3 cm/s in slip, 0.02-0.04 m
 cannot separate them from chance. **So the order matters: steps 0-4 build the gait (stand up, then step), steps 5-8
 fine-tune it.** For the fine-tuning terms, the leave-one-out runs (full set minus one term) are the better test.
 
-### Steps 7-8, leave-one-out, observations
+### Step 7: + torso wobble (`ladder_7`: `body_ang_vel`, `angular_momentum`)
 
-Pending (rounds 5 onwards).
+**Prediction:** less rocking of the torso.
+
+**What changed** (plain MuJoCo, vs step 6): torso tilt 2.3° → 1.4°, action rate 0.48 → 0.41, mechanical power
+80 → 69 W; tracking and gait unchanged. A calmer, cheaper walk; small effects like steps 5-6.
+
+Step 8 adds `joint_pos_limits` and `self_collisions`; with them the reward set is complete, so step 8 is the
+reference run (`baseline`, 1000 iterations).
+
+### Leave one out: without `foot_gait` (`loo_foot_gait`)
+
+**Prediction:** the gait falls apart into the step-3 shuffle, and the dead zone comes back, even though the foot terms
+(clearance, slip, soft landing) are still there.
+
+**What happened:** exactly that.
+
+| Plain MuJoCo | Step 3 (no gait term) | **Full set − `foot_gait`** | Full set |
+|---|---|---|---|
+| steps per second | 6.1 | **4.9** | 3.3 |
+| time in the air per step | 0.09 s | **0.11 s** | 0.25 s |
+| foot clearance | 1.4 cm | **1.1 cm** | 3.5 cm |
+| foot slip in stance | 16 cm/s | **12 cm/s** | 5 cm/s |
+| both feet down | 39 % | **39 %** | 17 % |
+| forward 0.2 / 0.5 / 1.0 m/s | 0.07 / 0.49 / 0.90 | **0.00 / 0.38 / 0.64** | 0.24 / 0.49 / 0.96 |
+| sideways 0.3 m/s | 0.24 | **0.00** | 0.20 |
+| standing without armature | stands (0.03 m) | **stands (0.11 m)** | falls |
+
+In its training simulator it also walks slower (0.39 m/s at a 0.5 command). The foot terms alone don't create
+steps: they only refine a gait that `foot_gait` creates. **`foot_gait` is what makes the robot step**, and without it
+the dead zone returns in full (no motion at all at 0.2 m/s forward or 0.3 m/s sideways). This is the strongest link so
+far to `walk.onnx`'s dead zone (Week 2): it was trained without a gait clock or a gait reward.
+
+**A pattern to check:** the only trained policies that stand still without armature (as in Gazebo) are the two
+without `foot_gait` (step 3 and this one). Two cases are not enough to call it a cause.
+
+### More leave-one-out runs, observations
+
+Pending (rounds 6 onwards).
 
 ## Log
 
@@ -177,4 +213,5 @@ Pending (rounds 5 onwards).
 | 2 | 6 | `baseline` (1000 it), `ladder_2` | done (videos failed: fixed for round 3) |
 | 3 | 7 | `ladder_3`, `ladder_4`, + training-simulator videos of `ladder_0`-`ladder_2` and `baseline` | done (6 videos took 80 min: now every 2nd frame, both GPUs) |
 | 4 | 8 | `ladder_5`, `ladder_6` | done (`ladder_6` video failed: EGL device fix) |
-| 5 | 9 | `ladder_7`, `loo_foot_gait`, + video of `ladder_6` | running |
+| 5 | 9 | `ladder_7`, `loo_foot_gait`, + video of `ladder_6` | done |
+| 6 | 10 | `loo_stand_still`, `loo_pose` | running |
