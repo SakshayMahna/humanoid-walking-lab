@@ -141,9 +141,33 @@ standing still without armature.
 **So 1000 iterations is enough for the full reward set**, and this run is the reference every ladder step is compared
 with.
 
-### Steps 5-8, leave-one-out, observations
+### Steps 5 and 6: + feet, + stand still (`ladder_5`, `ladder_6`)
 
-Pending (rounds 4 onwards).
+**Predictions:** step 5 (`foot_clearance`, `foot_slip`, `soft_landing`) lifts the feet higher and stops skidding;
+step 6 (`stand_still`) makes standing quieter.
+
+**What changed** (plain MuJoCo, compared with step 4):
+
+| | Step 4 | Step 5: + feet | Step 6: + stand still | Full set |
+|---|---|---|---|---|
+| foot clearance | 2.5 cm | **3.4 cm** | 2.9 cm | 3.5 cm |
+| foot slip in stance | 5.5 cm/s | **4.9 cm/s** | 4.5 cm/s | 5.0 cm/s |
+| turning (command 0.5 rad/s) | 0.45 | **0.52** | 0.52 | 0.44 |
+| slow walking (command 0.2 m/s) | 0.24 | 0.17 | 0.19 | 0.24 |
+| standing still, 12 s | 0.00 m | 0.00 m | 0.02 m | 0.00 m |
+
+Step 5 does what its terms ask, a little: feet lift ~1 cm higher and slip a little less (the clearance target is
+10 cm, but the penalty is weighted by foot speed, so it only pushes swinging feet up). Step 6 shows no effect in these
+tests: standing was already still without `stand_still`.
+
+**These effects are small**, about the size of the differences between two seeds of the same setup (the two 3000-
+iteration baselines differ by 0.1 cm in clearance, 0.3 cm/s in slip, 0.02-0.04 m/s in tracking). One seed per step
+cannot separate them from chance. **So the order matters: steps 0-4 build the gait (stand up, then step), steps 5-8
+fine-tune it.** For the fine-tuning terms, the leave-one-out runs (full set minus one term) are the better test.
+
+### Steps 7-8, leave-one-out, observations
+
+Pending (rounds 5 onwards).
 
 ## Log
 
@@ -152,4 +176,5 @@ Pending (rounds 4 onwards).
 | 1 | 5 | `ladder_0`, `ladder_1` | done |
 | 2 | 6 | `baseline` (1000 it), `ladder_2` | done (videos failed: fixed for round 3) |
 | 3 | 7 | `ladder_3`, `ladder_4`, + training-simulator videos of `ladder_0`-`ladder_2` and `baseline` | done (6 videos took 80 min: now every 2nd frame, both GPUs) |
-| 4 | 8 | `ladder_5`, `ladder_6` | running |
+| 4 | 8 | `ladder_5`, `ladder_6` | done (`ladder_6` video failed: EGL device fix) |
+| 5 | 9 | `ladder_7`, `loo_foot_gait`, + video of `ladder_6` | running |
