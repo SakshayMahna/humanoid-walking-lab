@@ -19,6 +19,7 @@ tools as the reference policies.
 
 ```bash
 .venv/bin/kaggle auth login                       # once (browser login; nothing stored in the repo)
+training/kaggle.sh ...                            # use instead of .venv/bin/kaggle: works around a token-refresh bug
 .venv/bin/kaggle kernels push -p training/kaggle  # runs the whole notebook on Kaggle (uses GPU quota)
 .venv/bin/kaggle kernels status sakshaymahna/teaching-a-unitree-g1-to-walk-reinforcement-learn
 .venv/bin/kaggle kernels output sakshaymahna/teaching-a-unitree-g1-to-walk-reinforcement-learn -p training/kaggle/output/v<N>
