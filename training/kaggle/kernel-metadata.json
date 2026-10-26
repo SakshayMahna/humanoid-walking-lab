@@ -12,7 +12,9 @@
   "keywords": [],
   "dataset_sources": [
     "sakshaymahna/g1-walking-runs",
-    "sakshaymahna/g1-walking-runs-v6"
+    "sakshaymahna/g1-walking-runs-v6",
+    "sakshaymahna/g1-walking-runs-v7",
+    "sakshaymahna/g1-walking-runs-v8"
   ],
   "kernel_sources": [],
   "competition_sources": [],
