@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--vx", type=float, default=0.5)
     parser.add_argument("--stand", type=float, default=4.0)
     parser.add_argument("--seconds", type=float, default=20.0)
+    parser.add_argument("--every", type=int, default=2, help="record every Nth policy step (2: 25 fps)")
     args = parser.parse_args()
 
     os.environ.setdefault("MUJOCO_GL", "egl")      # headless offscreen rendering (as Unitree's train.py sets)
@@ -72,12 +73,13 @@ def main():
         with torch.inference_mode():
             actions = policy(obs)
         obs, _, dones, _ = wrapped.step(actions)
-        frames.append(env.render())
+        if step % args.every == 0:
+            frames.append(env.render())               # rendering is the slow part: only every Nth step
         p = robot.data.root_link_pos_w[0].tolist()
         rows.append([f"{t + dt:.2f}", *(f"{v:.4f}" for v in p), int(dones[0].item())])
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    imageio.mimsave(out, frames, fps=round(1 / dt))
+    imageio.mimsave(out, frames, fps=round(1 / (dt * args.every)))
     with open(out.with_suffix(".csv"), "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["t", "x", "y", "z", "reset"])
