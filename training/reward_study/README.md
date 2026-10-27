@@ -43,7 +43,8 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 **Build order matters:** steps 0-4 decide *whether* the robot walks (sit → stand → shuffle → step); the remaining
 terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained without `foot_gait` stands still without
 armature (4 of 4); every policy trained with it falls (12 of 12) unless the armature is randomized in training
-(`dr_armature` stands, 1 seed so far). So it is the training conditions, not the gait reward alone.
+(`dr_armature` stands, but only 1 of 3 runs learned to walk at all; the others sat down). So it is the training
+conditions, not the gait reward alone.
 
 ## The 16 terms
 
@@ -371,6 +372,26 @@ gets every joint's armature scaled by a random factor between 0 (none, as in Gaz
   the baseline (episodes reach full length near iteration 700 instead of 400), and its reward was still climbing
   steeply at iteration 999. One seed at 1000 iterations is not a verdict on what it can reach. **Round 12** trains it
   for 2000 iterations with two seeds.
+
+**Round 12: the 2000-iteration runs sat down.** Both seeds (1 and 2) go down within 5 s in their training simulator
+(pelvis at 0.11-0.15 m for the rest of the video) and in every plain-MuJoCo test. The training logs show why:
+
+| Seed 1, iteration | 100 | 300 | 400 | 500 | 700 | 1000 |
+|---|---|---|---|---|---|---|
+| episode length, round 11 run | 13 | 103 | 230 | 351 | 943 | 989 |
+| episode length, round 12 run | 15 | 116 | **663** | 884 | 917 | 924 |
+| `pose` reward, round 11 run | 0.00 | 0.05 | 0.11 | 0.16 | **0.47** | **0.57** |
+| `pose` reward, round 12 run | 0.00 | 0.05 | 0.09 | 0.12 | 0.12 | 0.09 |
+
+The two seed-1 runs have the same config (only `max_iterations` differs, which changes nothing before the end) but
+GPU arithmetic is not bit-for-bit repeatable. Around iteration 300-400 they split. The round 11 run slowly learned
+to walk; the round 12 run found that **sitting** stops the episodes ending (episode length jumps to 660 by iteration
+400) and never left: `pose` stays near zero (its reward is out of range when sitting), and linear tracking stays at
+0.37 (the "free" tracking reward for not moving). It is the ladder 0-2 exploit again, now **with the full reward set**:
+randomizing the armature makes walking harder to find, and the fall check (tilt only) still allows sitting.
+
+So `dr_armature` worked in **1 of 3 runs**. **Round 13** (`dr_armature_height`) closes the loophole: a robot whose
+pelvis drops below 0.5 m has fallen (it stands at 0.78 m, sits at 0.11-0.15 m).
 - **Baseline seed 2** (1000 iterations) agrees with seed 1 to within 0.06 m/s on tracking and 0.1 cm on foot clearance, and
   also falls standing without armature. That gives a rough size for seed noise in this study.
 
@@ -389,4 +410,5 @@ gets every joint's armature scaled by a random factor between 0 (none, as in Gaz
 | 9 | 13 | `loo_body_orientation_l2`, `ladder_2_plus_action_rate_l2` | done |
 | 10 | 14 | `obs_no_clock`, `obs_lin_vel` | done (videos failed: the filming environment now applies the run's variant) |
 | 11 | 15 | `dr_armature`, `baseline` seed 2, + videos of `obs_no_clock`, `obs_lin_vel` | done |
-| 12 | 16 | `dr_armature` seeds 1 and 2, **2000 iterations** | running |
+| 12 | 16 | `dr_armature` seeds 1 and 2, **2000 iterations** | done (both sat down) |
+| 13 | 17 | `dr_armature_height` seeds 1 and 2 | running |
