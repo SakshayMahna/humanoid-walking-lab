@@ -17,11 +17,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "exercises"))
+sys.path.insert(0, str(REPO / "training"))
 sys.path.insert(0, str(REPO / "open_questions" / "q1b_controller"))
-from policy_utils import load_policy  # noqa: E402
 from render_utils import make_camera  # noqa: E402
 from render_videos import scenery  # noqa: E402  (large grid floor, visual only)
-from unitree_utils import HOME, UNITREE_POLICY, build_unitree_model, make_unitree_observation  # noqa: E402
+from policy_io import load_trained  # noqa: E402  (observation from each policy's own metadata)
+from unitree_utils import UNITREE_POLICY, build_unitree_model  # noqa: E402
 
 OUT = REPO / "recordings" / "training"
 WIDTH, HEIGHT, FPS = 640, 360, 25   # 25 fps = one frame every 8 physics steps (exact real time)
@@ -83,7 +84,7 @@ def main(paths):
         policies.append((name, run, Path(p)))
     tiles = []
     for title, label, path in policies:
-        policy = load_policy(path, joints, actuators, pose=HOME, obs_fn=make_unitree_observation)
+        policy = load_trained(path, joints, actuators)
         video = OUT / f"mujoco_{label}.mp4"
         seconds = render(model, data, policy, video)
         tiles.append(f"{title}|{video}")

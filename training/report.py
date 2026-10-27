@@ -27,8 +27,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "exercises"))
 sys.path.insert(0, str(REPO / "training"))
 from evaluate_policy import COMMANDS, SECONDS, run as track, unstable  # noqa: E402
-from policy_utils import load_policy  # noqa: E402
-from unitree_utils import HOME, UNITREE_POLICY, build_unitree_model, make_unitree_observation  # noqa: E402
+from policy_io import load_trained  # noqa: E402  (observation from each policy's own metadata)
+from unitree_utils import UNITREE_POLICY, build_unitree_model  # noqa: E402
 
 DECIMATION = 4
 OUT = REPO / "recordings" / "training" / "report.md"
@@ -166,7 +166,7 @@ def training_log(run_dir):
 
 
 def evaluate(robot, path):
-    policy = load_policy(path, robot.joints, robot.actuators, pose=HOME, obs_fn=make_unitree_observation)
+    policy = load_trained(path, robot.joints, robot.actuators)
     m, d = robot.model, robot.data
     dt = m.opt.timestep
     rows = {}

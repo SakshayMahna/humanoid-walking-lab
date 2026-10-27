@@ -7,6 +7,9 @@ changes it in place. `train_variant.py` applies one and trains it.
   ladder_<k>         "add one in": only the reward terms of ladder steps 0..k (PLAN.md, Track 1, Days 2-3)
   loo_<term>         "leave one out": the baseline without one reward term
   ladder_2_plus_<t>  ladder step 2 plus one of step 3's terms (action_rate_l2 or joint_acc_l2)
+  obs_no_clock       the full reward set minus foot_gait, and the policy without its gait clock input
+  obs_lin_vel        the full set, the policy also observing the base linear velocity (walk.onnx's design)
+  dr_armature        the full set, joint armature randomized per robot between 0 and its full value
 """
 
 # Reward terms of Unitree-G1-Flat, grouped into the add-one-in ladder (each step keeps the previous ones)
@@ -59,7 +62,37 @@ def ladder_2_plus(term):
     return variant
 
 
+def obs_no_clock(cfg):
+    """The policy without its gait clock input ("phase"). foot_gait is defined by the same clock, so it goes too.
+    The critic keeps the clock (it only guides training; the deployed policy never sees it)."""
+    baseline(cfg)
+    del cfg.observations["actor"].terms["phase"]
+    del cfg.rewards["foot_gait"]
+
+
+def obs_lin_vel(cfg):
+    """The policy also gets the base linear velocity (as walk.onnx does), with the critic's noise (+-0.5 m/s)."""
+    import copy
+    baseline(cfg)
+    actor = cfg.observations["actor"].terms
+    term = copy.deepcopy(cfg.observations["critic"].terms["base_lin_vel"])
+    cfg.observations["actor"].terms = {"base_lin_vel": term, **actor}     # first, like walk.onnx
+
+
+def dr_armature(cfg):
+    """Each robot's joint armature scaled by a random factor in [0, 1] at startup: from none (as in Gazebo) to the
+    full motor value. Tests whether training on varied joint dynamics fixes the Gazebo-without-armature failure."""
+    from mjlab.envs.mdp import dr
+    from mjlab.managers.event_manager import EventTermCfg
+    from mjlab.managers.scene_entity_config import SceneEntityCfg
+    baseline(cfg)
+    cfg.events["armature"] = EventTermCfg(mode="startup", func=dr.joint_armature,
+                                          params={"asset_cfg": SceneEntityCfg("robot"), "operation": "scale",
+                                                  "ranges": (0.0, 1.0)})
+
+
 VARIANTS = {"baseline": baseline}
 VARIANTS.update({f"ladder_{k}": ladder(k) for k in range(len(LADDER))})
 VARIANTS.update({f"loo_{term}": leave_out(term) for term in ALL_TERMS})
 VARIANTS.update({f"ladder_2_plus_{term}": ladder_2_plus(term) for term in LADDER[3]})
+VARIANTS.update({"obs_no_clock": obs_no_clock, "obs_lin_vel": obs_lin_vel, "dr_armature": dr_armature})

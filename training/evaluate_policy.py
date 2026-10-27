@@ -19,8 +19,10 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "exercises"))
-from policy_utils import load_policy, yaw  # noqa: E402
-from unitree_utils import HOME, UNITREE_POLICY, build_unitree_model, make_unitree_observation  # noqa: E402
+sys.path.insert(0, str(REPO / "training"))
+from policy_utils import yaw  # noqa: E402
+from policy_io import load_trained  # noqa: E402  (observation from each policy's own metadata)
+from unitree_utils import UNITREE_POLICY, build_unitree_model  # noqa: E402
 
 DECIMATION = 4          # 4 x 5 ms = 20 ms policy period, as in training
 SECONDS, MEASURE = 12.0, 6.0
@@ -70,7 +72,7 @@ def main(paths):
     policies.update({Path(p).parent.name: Path(p) for p in paths})
     print(f"{'policy':40s} " + "  ".join(f"{name:>16s}" for name in COMMANDS))
     for label, path in policies.items():
-        policy = load_policy(path, joints, actuators, pose=HOME, obs_fn=make_unitree_observation)
+        policy = load_trained(path, joints, actuators)
         cells = []
         for name, command in COMMANDS.items():
             vx, vy, wz, moved, fell = run(model, data, policy, command, SECONDS)
