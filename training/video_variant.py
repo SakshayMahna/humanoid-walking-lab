@@ -2,7 +2,8 @@
 
 The evaluation scripts (report.py, render_policy.py) run policies in plain MuJoCo on the CPU. This shows the same
 policy in the environment it was trained in, so a policy that only works there (or only in plain MuJoCo) is visible.
-One robot, Unitree-G1-Flat's play settings, stand for STAND seconds, then walk forward at VX.
+One robot, Unitree-G1-Flat's play settings, stand for STAND seconds, then walk forward at VX. The environment gets the
+run's variant (training/variants.py, read from the run folder's name), so a policy with other inputs loads too.
 
 Run from inside the unitree_rl_mjlab checkout:
 
@@ -15,11 +16,20 @@ was put back at its start.
 import argparse
 import csv
 import os
+import re
 import sys
 from dataclasses import asdict
 from pathlib import Path
 
 TASK = "Unitree-G1-Flat"
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # variants.py
+from variants import VARIANTS  # noqa: E402
+
+
+def variant_of(checkpoint):
+    """The variant in the run folder's name (<date>_<time>_<variant>_seed<n>); baseline if there is none."""
+    match = re.fullmatch(r"[\d-]+_[\d-]+_(.+)_seed\d+", Path(checkpoint).parent.name)
+    return match.group(1) if match and match.group(1) in VARIANTS else "baseline"
 
 
 def main():
@@ -44,6 +54,8 @@ def main():
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     env_cfg = load_env_cfg(TASK, play=True)
+    variant = variant_of(args.checkpoint)
+    VARIANTS[variant](env_cfg)                    # same observations (and rewards) as in training
     agent_cfg = load_rl_cfg(TASK)
     env_cfg.scene.num_envs = 1
     twist = env_cfg.commands["twist"]
@@ -85,7 +97,7 @@ def main():
         writer.writerow(["t", "x", "y", "z", "reset"])
         writer.writerows(rows)
     resets = sum(r[-1] for r in rows)
-    print(f"[video] {out.name}: {len(frames)} frames, {resets} reset(s) (falls) in {args.seconds:.0f} s")
+    print(f"[video] {variant} {out.name}: {len(frames)} frames, {resets} reset(s) (falls) in {args.seconds:.0f} s")
     env.close()
 
 
