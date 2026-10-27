@@ -32,6 +32,8 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 | `action_rate_l2` | **to stand up** (sitting needs big action changes) and to move smoothly; without it actions are 2× jumpier and **turning breaks** | ladder 2+, leave-one-out |
 | `joint_acc_l2` | little on top of `action_rate_l2` | leave-one-out |
 | `foot_gait` | **to step**: alternating steps on the clock; without it a fast shuffle and the **dead zone** (no motion at slow commands) | ladder 4, leave-one-out |
+| gait clock input | nothing by itself: removing it on top of `foot_gait` changes nothing; it is what `foot_gait` is written in | `obs_no_clock` |
+| base velocity input | nothing measurable in plain MuJoCo (no fragility, no dead zone) | `obs_lin_vel` |
 | `foot_clearance` | about **1 cm** more foot lift | ladder 5 and leave-one-out agree |
 | `foot_slip`, `soft_landing` | small: less slip (within seed noise) | ladder 5, leave-one-out |
 | `stand_still` | nothing visible in these tests (`pose` already holds the robot still) | ladder 6, leave-one-out |
@@ -40,7 +42,7 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 
 **Build order matters:** steps 0-4 decide *whether* the robot walks (sit → stand → shuffle → step); the remaining
 terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained without `foot_gait` stands still without
-armature (3 of 3); every policy trained with it falls (10 of 10). A correlation so far, not a cause.
+armature (4 of 4); every policy trained with it falls (11 of 11). A correlation so far, not a cause.
 
 ## The 16 terms
 
@@ -318,8 +320,35 @@ keep the torso upright. Its job showed up in the ladder (step 1: sit up instead 
 
 ### Observations and randomization
 
-Pending (rounds 10 onwards): `obs_no_clock` (no gait clock input, no `foot_gait`), `obs_lin_vel` (base velocity as an
-input, as in `walk.onnx`), `dr_armature` (armature randomized between none and full).
+Two changes to what the policy *sees*, with the full reward set otherwise (round 10):
+
+- `obs_no_clock`: no gait clock input (96 inputs instead of 98). `foot_gait` is defined by the clock, so it goes too.
+  This is `loo_foot_gait` minus the clock input.
+- `obs_lin_vel`: the base linear velocity as an extra input (101 inputs), as in `walk.onnx`, with the same noise the
+  critic gets (±0.5 m/s).
+
+| Plain MuJoCo | Full set | − `foot_gait` | **no clock** | **+ base velocity** |
+|---|---|---|---|---|
+| forward 0.2 / 0.5 / 1.0 m/s | 0.24 / 0.49 / 0.96 | 0.00 / 0.38 / 0.64 | **0.08 / 0.42 / 0.81** | **0.20 / 0.46 / 0.99** |
+| sideways 0.3 m/s | 0.20 | 0.00 | **0.05** | **0.24** |
+| turning 0.5 rad/s | 0.44 | 0.40 | **0.49** | **0.47** |
+| steps per second / both feet down | 3.3 / 17 % | 4.9 / 39 % | **4.9 / 28 %** | **3.4 / 16 %** |
+| foot clearance | 3.5 cm | 1.1 cm | **1.2 cm** | **2.7 cm** |
+| mechanical power | 72 W | 56 W | **62 W** | **62 W** |
+| pushes, friction 0.3 / 1.2 | fine | fine | **fine** | **fine** |
+| standing without armature | falls | stands (0.11 m) | **stands (0.21 m)** | **falls** |
+
+- **No clock:** the same shuffle and (nearly) the same dead zone as `loo_foot_gait`. Taking the clock *input* away
+  adds nothing to taking `foot_gait` away: an input the rewards don't use teaches nothing. **The stepping comes from
+  the gait reward, and the clock is only what that reward is written in.** The no-clock policy reaches higher speeds
+  than `loo_foot_gait` (0.81 vs 0.64 m/s at 1.0), but with one seed each that is within the spread we have seen.
+- **Base velocity input:** walks like the full set, with slightly better tracking at 1.0 m/s and sideways, and
+  survives pushes and both frictions. **In plain MuJoCo the extra input doesn't make the policy fragile.** It doesn't
+  explain `walk.onnx`'s dead zone either: this policy has none. That fits the `foot_gait` result: `walk.onnx` was trained
+  without a gait clock or gait reward, and its dead zone looks like the no-clock one. (Whether the velocity input
+  explains `walk.onnx` getting worse with Gazebo's velocity damping is a separate question, not tested here.)
+- **The no-armature pattern holds:** without `foot_gait` the policy stands without armature (now 4 of 4); with it,
+  it falls (now 11 of 11). Round 11 (`dr_armature`) tests the training-side fix.
 
 ## Log
 
@@ -334,4 +363,5 @@ input, as in `walk.onnx`), `dr_armature` (armature randomized between none and f
 | 7 | 11 | `loo_action_rate_l2`, `loo_joint_acc_l2` | done |
 | 8 | 12 | `loo_foot_slip`, `loo_foot_clearance` | done |
 | 9 | 13 | `loo_body_orientation_l2`, `ladder_2_plus_action_rate_l2` | done |
-| 10 | 14 | `obs_no_clock`, `obs_lin_vel` | running |
+| 10 | 14 | `obs_no_clock`, `obs_lin_vel` | done (videos failed: the filming environment now applies the run's variant) |
+| 11 | 15 | `dr_armature`, `baseline` seed 2, + videos of `obs_no_clock`, `obs_lin_vel` | running |
