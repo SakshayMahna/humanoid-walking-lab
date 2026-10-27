@@ -26,7 +26,7 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 | Term | What the robot learns from it | Evidence |
 |---|---|---|
 | tracking (linear, angular) | to follow commands, but they also pay ~half the reward for not moving at all; alone, the robot **sits down** | ladder 0-2, videos |
-| `is_terminated` (fall = tilt > 70°) | not to tip over; height is not checked, so sitting counts as "not fallen" | ladder 0-2 |
+| `is_terminated` (fall = tilt > 70°) | not to tip over; height is not checked, so sitting counts as "not fallen" (and wins whenever walking is hard to find: ladder 0-2, 2 of 3 `dr_armature` runs) | ladder 0-2, rounds 12-13 |
 | `body_orientation_l2` | to sit up instead of lying (ladder); little left to do in the full set | ladder 1, leave-one-out |
 | `pose` | to keep the **upper body still**: without it the arms swing 10-25× more and power doubles; useless while sitting (exponential reward, out of range) | ladder 2, leave-one-out |
 | `action_rate_l2` | **to stand up** (sitting needs big action changes) and to move smoothly; without it actions are 2× jumpier and **turning breaks** | ladder 2+, leave-one-out |
@@ -43,8 +43,9 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 **Build order matters:** steps 0-4 decide *whether* the robot walks (sit → stand → shuffle → step); the remaining
 terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained without `foot_gait` stands still without
 armature (4 of 4); every policy trained with it falls (12 of 12) unless the armature is randomized in training
-(`dr_armature` stands, but only 1 of 3 runs learned to walk at all; the others sat down). So it is the training
-conditions, not the gait reward alone.
+(`dr_armature` stands, but only 1 of 3 runs learned to walk at all; the others sat down). With a height fall check
+added (`dr_armature_height`), 2 of 2 seeds stand without armature, though slow walkers after 1000 iterations. So it
+is the training conditions, not the gait reward alone.
 
 ## The 16 terms
 
@@ -392,6 +393,25 @@ randomizing the armature makes walking harder to find, and the fall check (tilt 
 
 So `dr_armature` worked in **1 of 3 runs**. **Round 13** (`dr_armature_height`) closes the loophole: a robot whose
 pelvis drops below 0.5 m has fallen (it stands at 0.78 m, sits at 0.11-0.15 m).
+
+**Round 13: with the height check, neither seed sits.** In both, `pose` climbs normally (0.68 and 0.64 at iteration
+1000) and the episodes reach full length (997 and 994 steps).
+
+| Plain MuJoCo | Full set (seed 1) | **armature randomized + height check, seed 1** | **seed 2** |
+|---|---|---|---|
+| forward 0.2 / 0.5 / 1.0 m/s | 0.24 / 0.49 / 0.96 | **0.07 / 0.10 / 0.13** | **0.18 / 0.33 / 0.37** |
+| sideways 0.3 m/s / turning 0.5 rad/s | 0.20 / 0.44 | 0.11 / 0.29 | 0.19 / 0.21 |
+| pushes survived | 4 of 4 | 4 of 4 | 4 of 4 |
+| mechanical power | 72 W | 19 W | 42 W |
+| **standing without armature** | falls | **stands (0.00 m)** | **stands (0.04 m)** |
+
+- **Both seeds stand without armature** and survive every push: with sitting ruled out, armature randomization
+  reliably produces policies that stand on joints without armature (2 of 2).
+- **Both are under-trained.** Learning runs well behind the baseline (episodes reach full length only after iteration 700,
+  baseline near 400), and the reward was still rising steeply at iteration 1000 (seed 1: −8.7 at 700, +14.0 at 1000).
+  Seed 1 barely walks yet (0.10 m/s at a 0.5 command, 46 % double support); seed 2 is further along.
+- **Round 14** trains the same variant for 2000 iterations. Without the sitting loophole, longer training should only
+  help, which is what round 12 could not test.
 - **Baseline seed 2** (1000 iterations) agrees with seed 1 to within 0.06 m/s on tracking and 0.1 cm on foot clearance, and
   also falls standing without armature. That gives a rough size for seed noise in this study.
 
@@ -411,4 +431,5 @@ pelvis drops below 0.5 m has fallen (it stands at 0.78 m, sits at 0.11-0.15 m).
 | 10 | 14 | `obs_no_clock`, `obs_lin_vel` | done (videos failed: the filming environment now applies the run's variant) |
 | 11 | 15 | `dr_armature`, `baseline` seed 2, + videos of `obs_no_clock`, `obs_lin_vel` | done |
 | 12 | 16 | `dr_armature` seeds 1 and 2, **2000 iterations** | done (both sat down) |
-| 13 | 17 | `dr_armature_height` seeds 1 and 2 | running |
+| 13 | 17 | `dr_armature_height` seeds 1 and 2 | done |
+| 14 | 18 | `dr_armature_height` seeds 1 and 2, **2000 iterations** | running |
