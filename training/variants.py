@@ -10,6 +10,7 @@ changes it in place. `train_variant.py` applies one and trains it.
   obs_no_clock       the full reward set minus foot_gait, and the policy without its gait clock input
   obs_lin_vel        the full set, the policy also observing the base linear velocity (walk.onnx's design)
   dr_armature        the full set, joint armature randomized per robot between 0 and its full value
+  dr_armature_height dr_armature, and a robot whose pelvis drops below 0.5 m has fallen (no sitting)
 """
 
 # Reward terms of Unitree-G1-Flat, grouped into the add-one-in ladder (each step keeps the previous ones)
@@ -91,8 +92,19 @@ def dr_armature(cfg):
                                                   "ranges": (0.0, 1.0)})
 
 
+def dr_armature_height(cfg):
+    """dr_armature plus a height fall check. Unitree's task only ends an episode on a tilt over 70 degrees, so a robot
+    sitting upright counts as standing; with randomized armature 2 of 3 runs settled into sitting (round 12)."""
+    from mjlab.envs.mdp.terminations import root_height_below_minimum
+    from mjlab.managers.termination_manager import TerminationTermCfg
+    dr_armature(cfg)
+    cfg.terminations["too_low"] = TerminationTermCfg(func=root_height_below_minimum,
+                                                     params={"minimum_height": 0.5})   # stands at 0.78 m
+
+
 VARIANTS = {"baseline": baseline}
 VARIANTS.update({f"ladder_{k}": ladder(k) for k in range(len(LADDER))})
 VARIANTS.update({f"loo_{term}": leave_out(term) for term in ALL_TERMS})
 VARIANTS.update({f"ladder_2_plus_{term}": ladder_2_plus(term) for term in LADDER[3]})
-VARIANTS.update({"obs_no_clock": obs_no_clock, "obs_lin_vel": obs_lin_vel, "dr_armature": dr_armature})
+VARIANTS.update({"obs_no_clock": obs_no_clock, "obs_lin_vel": obs_lin_vel, "dr_armature": dr_armature,
+                 "dr_armature_height": dr_armature_height})
