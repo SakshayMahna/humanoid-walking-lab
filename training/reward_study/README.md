@@ -21,6 +21,27 @@ one computes, and what the robot learns, or fails to learn, with and without it.
   effort, posture, robustness).
 - A prediction is written down before each result.
 
+## Summary: what each term does (so far)
+
+| Term | What the robot learns from it | Evidence |
+|---|---|---|
+| tracking (linear, angular) | to follow commands, but they also pay ~half the reward for not moving at all; alone, the robot **sits down** | ladder 0-2, videos |
+| `is_terminated` (fall = tilt > 70°) | not to tip over; height is not checked, so sitting counts as "not fallen" | ladder 0-2 |
+| `body_orientation_l2` | to sit up instead of lying (ladder); little left to do in the full set | ladder 1, leave-one-out |
+| `pose` | to keep the **upper body still**: without it the arms swing 10-25× more and power doubles; useless while sitting (exponential reward, out of range) | ladder 2, leave-one-out |
+| `action_rate_l2` | **to stand up** (sitting needs big action changes) and to move smoothly; without it actions are 2× jumpier and **turning breaks** | ladder 2+, leave-one-out |
+| `joint_acc_l2` | little on top of `action_rate_l2` | leave-one-out |
+| `foot_gait` | **to step**: alternating steps on the clock; without it a fast shuffle and the **dead zone** (no motion at slow commands) | ladder 4, leave-one-out |
+| `foot_clearance` | about **1 cm** more foot lift | ladder 5 and leave-one-out agree |
+| `foot_slip`, `soft_landing` | small: less slip (within seed noise) | ladder 5, leave-one-out |
+| `stand_still` | nothing visible in these tests (`pose` already holds the robot still) | ladder 6, leave-one-out |
+| `body_ang_vel`, `angular_momentum` | a calmer, cheaper walk (small) | ladder 7 |
+| `joint_pos_limits`, `self_collisions` | not tested separately (rarely active) | – |
+
+**Build order matters:** steps 0-4 decide *whether* the robot walks (sit → stand → shuffle → step); the remaining
+terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained without `foot_gait` stands still without
+armature (3 of 3); every policy trained with it falls (10 of 10). A correlation so far, not a cause.
+
 ## The 16 terms
 
 $$v$$, $$\omega$$: base linear and angular velocity (pelvis frame), $$c$$: velocity command, $$g$$: gravity in the torso
@@ -274,9 +295,31 @@ terms, and a ladder step with only one of them would be needed to show it.
 - Neither changes tracking or robustness. Without either, the walk is even a little cheaper: lifting the feet and
   avoiding slip both cost energy.
 
-### More leave-one-out runs, observations
+### Which smoothness term makes the robot stand up? (`ladder_2_plus_action_rate_l2`)
 
-Pending (rounds 9 onwards).
+Ladder step 2 (tracking, upright, pose: the robot sits) plus **only** `action_rate_l2`:
+
+| | Step 2 | Step 2 + `action_rate_l2` | Step 3 (both smoothness terms) |
+|---|---|---|---|
+| pelvis in its training simulator | 0.14 m (sits) | **0.78 m (stands)** | 0.79 m |
+| steps per second / both feet down | – | 6.8 / 50 % | 6.1 / 39 % |
+| foot slip in stance | – | 21 cm/s | 16 cm/s |
+| standing without armature | – | stands (0.22 m) | stands (0.03 m) |
+
+**`action_rate_l2` alone turns sitting into standing.** It is the term that makes "sit down and collect the tracking
+reward for free" a bad deal: getting down, rocking and propping all need large changes in the action from one step to
+the next. It produces an even more frantic shuffle than step 3, which also has `joint_acc_l2`.
+
+### Leave one out: without `body_orientation_l2` (`loo_body_orientation_l2`)
+
+Walks normally: torso tilt 1.5° (full set 1.2°), forward tracking a little lower at 0.5 m/s (0.41 vs 0.49), turning,
+pushes and friction fine. **In the full set the upright term has little left to do**: `pose` and `foot_gait` already
+keep the torso upright. Its job showed up in the ladder (step 1: sit up instead of lying on the back).
+
+### Observations and randomization
+
+Pending (rounds 10 onwards): `obs_no_clock` (no gait clock input, no `foot_gait`), `obs_lin_vel` (base velocity as an
+input, as in `walk.onnx`), `dr_armature` (armature randomized between none and full).
 
 ## Log
 
@@ -290,4 +333,5 @@ Pending (rounds 9 onwards).
 | 6 | 10 | `loo_stand_still`, `loo_pose` | done |
 | 7 | 11 | `loo_action_rate_l2`, `loo_joint_acc_l2` | done |
 | 8 | 12 | `loo_foot_slip`, `loo_foot_clearance` | done |
-| 9 | 13 | `loo_body_orientation_l2`, `ladder_2_plus_action_rate_l2` | running |
+| 9 | 13 | `loo_body_orientation_l2`, `ladder_2_plus_action_rate_l2` | done |
+| 10 | 14 | `obs_no_clock`, `obs_lin_vel` | running |
