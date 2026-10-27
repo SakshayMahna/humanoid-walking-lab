@@ -42,7 +42,8 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 
 **Build order matters:** steps 0-4 decide *whether* the robot walks (sit → stand → shuffle → step); the remaining
 terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained without `foot_gait` stands still without
-armature (4 of 4); every policy trained with it falls (11 of 11). A correlation so far, not a cause.
+armature (4 of 4); every policy trained with it falls (12 of 12) unless the armature is randomized in training
+(`dr_armature` stands, 1 seed so far). So it is the training conditions, not the gait reward alone.
 
 ## The 16 terms
 
@@ -350,6 +351,29 @@ Two changes to what the policy *sees*, with the full reward set otherwise (round
 - **The no-armature pattern holds:** without `foot_gait` the policy stands without armature (now 4 of 4); with it,
   it falls (now 11 of 11). Round 11 (`dr_armature`) tests the training-side fix.
 
+**Armature randomization (`dr_armature`, round 11).** Full reward set; at startup each of the 4096 training robots
+gets every joint's armature scaled by a random factor between 0 (none, as in Gazebo) and 1 (Unitree's value).
+
+| Plain MuJoCo | Full set, seed 1 | Full set, seed 2 | **armature randomized** |
+|---|---|---|---|
+| forward 0.2 / 0.5 / 1.0 m/s | 0.24 / 0.49 / 0.96 | 0.20 / 0.46 / 1.02 | **0.11 / 0.37 / 0.76** |
+| sideways 0.3 m/s / turning 0.5 rad/s | 0.20 / 0.44 | 0.18 / 0.46 | **0.18 / 0.18** |
+| standing (with armature) | 0.00 m | 0.00 m | **0.06 m** |
+| pushes survived | 4 of 4 | 4 of 4 | **3 of 4** |
+| mechanical power | 72 W | 74 W | **51 W** |
+| **standing without armature** | falls | falls | **stands (0.07 m)** |
+| walking without armature, 0.5 m/s | 0.49 | 0.54 | **0.42** |
+
+- **It is the first policy with `foot_gait` that stands without armature.** So the falls were not caused by the gait
+  reward itself: a gait-trained policy can learn to stand on joints without armature if it meets them in training.
+- **It is behind on everything else**, turning most of all (0.18 rad/s, like the policy without `action_rate_l2`). The
+  training curves show why: with randomized joints the task is harder and learning runs about 300 iterations behind
+  the baseline (episodes reach full length near iteration 700 instead of 400), and its reward was still climbing
+  steeply at iteration 999. One seed at 1000 iterations is not a verdict on what it can reach. **Round 12** trains it
+  for 2000 iterations with two seeds.
+- **Baseline seed 2** (1000 iterations) agrees with seed 1 to within 0.06 m/s on tracking and 0.1 cm on foot clearance, and
+  also falls standing without armature. That gives a rough size for seed noise in this study.
+
 ## Log
 
 | Round | Notebook version | Runs | Status |
@@ -364,4 +388,5 @@ Two changes to what the policy *sees*, with the full reward set otherwise (round
 | 8 | 12 | `loo_foot_slip`, `loo_foot_clearance` | done |
 | 9 | 13 | `loo_body_orientation_l2`, `ladder_2_plus_action_rate_l2` | done |
 | 10 | 14 | `obs_no_clock`, `obs_lin_vel` | done (videos failed: the filming environment now applies the run's variant) |
-| 11 | 15 | `dr_armature`, `baseline` seed 2, + videos of `obs_no_clock`, `obs_lin_vel` | running |
+| 11 | 15 | `dr_armature`, `baseline` seed 2, + videos of `obs_no_clock`, `obs_lin_vel` | done |
+| 12 | 16 | `dr_armature` seeds 1 and 2, **2000 iterations** | running |
