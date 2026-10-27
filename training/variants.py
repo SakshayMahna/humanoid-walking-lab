@@ -6,6 +6,7 @@ changes it in place. `train_variant.py` applies one and trains it.
   baseline           Unitree-G1-Flat unchanged
   ladder_<k>         "add one in": only the reward terms of ladder steps 0..k (PLAN.md, Track 1, Days 2-3)
   loo_<term>         "leave one out": the baseline without one reward term
+  ladder_2_plus_<t>  ladder step 2 plus one of step 3's terms (action_rate_l2 or joint_acc_l2)
 """
 
 # Reward terms of Unitree-G1-Flat, grouped into the add-one-in ladder (each step keeps the previous ones)
@@ -50,6 +51,15 @@ def leave_out(term):
     return variant
 
 
+def ladder_2_plus(term):
+    """Ladder step 2 plus one smoothness term: which of step 3's two terms makes the robot stand up?"""
+    def variant(cfg):
+        baseline(cfg)
+        keep_rewards(cfg, [t for step in LADDER[:3] for t in step] + [term])
+    return variant
+
+
 VARIANTS = {"baseline": baseline}
 VARIANTS.update({f"ladder_{k}": ladder(k) for k in range(len(LADDER))})
 VARIANTS.update({f"loo_{term}": leave_out(term) for term in ALL_TERMS})
+VARIANTS.update({f"ladder_2_plus_{term}": ladder_2_plus(term) for term in LADDER[3]})
