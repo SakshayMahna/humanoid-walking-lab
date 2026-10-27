@@ -256,9 +256,27 @@ tiny next to the accelerations involved, and smooth actions already mean smooth 
 the two to be what made the robot stand up at ladder step 3, but that is a reading, not a result: step 3 added both
 terms, and a ladder step with only one of them would be needed to show it.
 
+### Leave one out: the foot terms (`loo_foot_clearance`, `loo_foot_slip`)
+
+| Plain MuJoCo | Full set | − `foot_clearance` | − `foot_slip` |
+|---|---|---|---|
+| foot clearance | 3.5 cm | **2.6 cm** | 2.4 cm |
+| foot slip in stance | 5.0 cm/s | 3.5 cm/s | **5.8 cm/s** |
+| both feet down | 17 % | 13 % | 24 % |
+| mechanical power | 72 W | 68 W | 55 W |
+| tracking, pushes, friction | fine | fine | fine |
+
+- **`foot_clearance` buys about 1 cm of foot lift, measured both ways:** removing it from the full set lowers the
+  feet by 0.9 cm, and adding it in ladder step 5 raised them by 0.9 cm. Two independent comparisons agree, so this
+  one is a real effect, not seed noise.
+- **`foot_slip`:** removing it makes the feet slip a little more (+0.8 cm/s) and keeps both feet down longer (24 %
+  vs 17 %): the expected direction, but within the spread between seeds.
+- Neither changes tracking or robustness. Without either, the walk is even a little cheaper: lifting the feet and
+  avoiding slip both cost energy.
+
 ### More leave-one-out runs, observations
 
-Pending (rounds 8 onwards).
+Pending (rounds 9 onwards).
 
 ## Log
 
@@ -271,4 +289,5 @@ Pending (rounds 8 onwards).
 | 5 | 9 | `ladder_7`, `loo_foot_gait`, + video of `ladder_6` | done |
 | 6 | 10 | `loo_stand_still`, `loo_pose` | done |
 | 7 | 11 | `loo_action_rate_l2`, `loo_joint_acc_l2` | done |
-| 8 | 12 | `loo_foot_slip`, `loo_foot_clearance` | running |
+| 8 | 12 | `loo_foot_slip`, `loo_foot_clearance` | done |
+| 9 | 13 | `loo_body_orientation_l2`, `ladder_2_plus_action_rate_l2` | running |
