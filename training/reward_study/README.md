@@ -45,7 +45,8 @@ terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained withou
 armature (4 of 4); every policy trained with it falls (12 of 12) unless the armature is randomized in training
 (`dr_armature` stands, but only 1 of 3 runs learned to walk at all; the others sat down). With a height fall check
 added (`dr_armature_height`), 2 of 2 seeds stand without armature, and after 2000 iterations they walk almost as well
-as the baseline. So it is the training conditions, not the gait reward.
+as the baseline. So it is the training conditions, not the gait reward. **But in Gazebo these policies do worse than
+Unitree's** (both fall standing in the original model): MuJoCo without armature is not a stand-in for Gazebo.
 
 ## The 16 terms
 
@@ -434,6 +435,29 @@ pelvis drops below 0.5 m has fallen (it stands at 0.78 m, sits at 0.11-0.15 m).
 - **Answer to the Gazebo question (Q2), from the training side:** the policies fell standing without armature
   because they had only ever met joints with armature. Trained on the whole range (and kept from sitting), the same
   reward set gives policies that stand and walk both with and without it. The test that remains is Gazebo itself.
+
+**In Gazebo it does not carry over.** Both round 14 policies next to Unitree's, in three Gazebo setups (sim clock;
+stand 30 s at zero command, then a separate run walking at 0.5 m/s;
+[`training/gazebo_compare.sh`](../gazebo_compare.sh) with `MODEL_VARIANT`):
+
+| Gazebo | Unitree's policy | Ours, seed 1 | Ours, seed 2 |
+|---|---|---|---|
+| original model (Luis's controllers, no armature): stand | up, drifts 4.9 m | **falls at ~1.5 s** | **falls at ~3 s** |
+| original model: walk 0.5 m/s | 0.56 m/s | **falls** | 0.55 m/s |
+| corrected controller, no armature: stand | still (0.00 m) | **falls at 27 s** | still (0.07 m) |
+| corrected controller, no armature: walk | 0.51 m/s | 0.50 m/s | 0.55 m/s |
+| corrected controller + armature: stand | still (0.00 m) | still (0.06 m) | drifts 0.5 m |
+| corrected controller + armature: walk | 0.49 m/s | 0.44 m/s | 0.47 m/s |
+
+- **Where Unitree's policy falls short in Gazebo, ours do worse**, not better: in the original model both fall
+  standing within seconds, and seed 1 falls walking too. Unitree's policy stays up (drifting, as in Week 3).
+- **Plain MuJoCo without armature is not a stand-in for Gazebo without armature.** Gazebo (DART) differs in more than
+  armature: the controller (Luis's gains and PID in the original model), contacts, the solver. A policy that has
+  learned to rely on low-armature joints in MuJoCo can be *more* fragile to those differences. Which difference
+  topples it is not tested here.
+- So the plain-MuJoCo result stands (randomizing armature, with a height check, fixes MuJoCo-without-armature), but
+  **it is not a fix for Gazebo**. For Gazebo, the corrected controller + armature model (Week 3) remains the setup
+  in which every policy tested stands and walks.
 - **Baseline seed 2** (1000 iterations) agrees with seed 1 to within 0.06 m/s on tracking and 0.1 cm on foot clearance, and
   also falls standing without armature. That gives a rough size for seed noise in this study.
 
