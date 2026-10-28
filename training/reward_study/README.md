@@ -31,7 +31,7 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 | `pose` | to keep the **upper body still**: without it the arms swing 10-25× more and power doubles; useless while sitting (exponential reward, out of range) | ladder 2, leave-one-out |
 | `action_rate_l2` | **to stand up** (sitting needs big action changes) and to move smoothly; without it actions are 2× jumpier and **turning breaks** | ladder 2+, leave-one-out |
 | `joint_acc_l2` | little on top of `action_rate_l2` | leave-one-out |
-| `foot_gait` | **to step**: alternating steps on the clock; without it a fast shuffle and the **dead zone** (no motion at slow commands) | ladder 4, leave-one-out |
+| `foot_gait` | **to step**: alternating steps on the clock; without it a fast shuffle and the **dead zone** (no motion at slow commands; harder tracking rewards remove the dead zone but not the shuffle) | ladder 4, leave-one-out, round 16 |
 | gait clock input | nothing by itself: removing it on top of `foot_gait` changes nothing; it is what `foot_gait` is written in | `obs_no_clock` |
 | base velocity input | nothing measurable in plain MuJoCo (no fragility, no dead zone) | `obs_lin_vel` |
 | `foot_clearance` | about **1 cm** more foot lift | ladder 5 and leave-one-out agree |
@@ -510,16 +510,53 @@ standing is penalized, $$-10\,(h - 0.78)^2$$ (sitting at 0.15 m costs ~4 per ste
 
 | | Unitree's policy | Full set | Step 0 + strict | Full set + strict |
 |---|---|---|---|---|
-| no armature: stand 30 s | still | **still (0.00 m)** | falls within ~1.5 s | stays up, **walks away 6.5 m** |
+| no armature: stand 30 s | still (4 of 5 runs; see round 16) | **still (0.00 m; 3 repeats: 0.01-0.02 m)** | falls within ~1.5 s | stays up, **walks away 6.5 m** (3 repeats: falls, 4.7 m, falls) |
 | no armature: walk 0.5 m/s | 0.51 | 0.63 | falls | 0.60 |
 | armature: stand 30 s | still | – | falls within ~1.5 s | still (0.08 m) |
 | armature: walk 0.5 m/s | 0.49 | – | falls | 0.50 |
 
 - The buzzing step-0 policy does not transfer at all, not even with armature.
-- The stricter check does not help in Gazebo; one seed of it drifts badly without armature (single runs, and two
-  seeds of `dr_armature_height` also split in this setup, so not conclusive).
+- The stricter check does not help in Gazebo: without armature it falls in 2 of 3 repeats and drifts 4.7 m in the
+  third (one seed).
 - **With Unitree's gains and joint damping, the normal full-set policy stands and walks in Gazebo without armature**,
   like Unitree's policy (and like plain MuJoCo at 1 ms).
+
+### Harder velocity tracking (`track_hard`, `loo_foot_gait_track_hard`, round 16)
+
+Humanoid-Gym's two tracking terms added to the full set, with their weights: `track_vel_hard` (0.5),
+$$\tfrac12\left(e^{-10\,\lVert c_{xy}-v_{xy}\rVert} + e^{-10\,|c_z-\omega_z|}\right) - 0.2\left(\lVert c_{xy}-v_{xy}\rVert + |c_z-\omega_z|\right)$$,
+a sharp peak plus a linear term that keeps a slope far from the target, and `low_speed` (0.2): −1 below half the
+forward command, +1.2 within 50-120 %, −2 the wrong way (only when |c_x| > 0.1). Standing still when told to walk
+now loses reward instead of earning ~half of it. Question: does this remove the dead zone of `loo_foot_gait`?
+
+| Plain MuJoCo | Full set | **+ hard tracking** | without `foot_gait` | **without `foot_gait` + hard tracking** |
+|---|---|---|---|---|
+| forward 0.2 / 0.5 / 1.0 m/s | 0.24 / 0.49 / 0.96 | 0.20 / 0.46 / 0.95 | **0.00** / 0.38 / 0.64 | **0.19** / 0.45 / 0.93 |
+| sideways 0.3 / turning 0.5 | 0.20 / 0.44 | 0.21 / 0.43 | **0.00** / 0.40 | **0.20** / 0.37 |
+| steps per second / air time | 3.25 / 0.25 s | 3.38 / 0.24 s | 4.88 / 0.11 s | 5.12 / 0.13 s |
+| clearance / both feet down / slip | 3.5 cm / 17 % / 5.0 cm/s | 4.0 cm / 18 % / 3.9 cm/s | 1.1 cm / 39 % / 12 cm/s | 1.8 cm / 31 % / 8.3 cm/s |
+| action rate / power | 0.43 / 72 W | 0.54 / 82 W | 0.35 / 56 W | 0.75 / 94 W |
+| without armature (5 ms): stand | falls | falls | 0.11 m | 0.15 m |
+
+- **The dead zone is a reward problem, not a `foot_gait` problem**: with the hard tracking terms the policy without
+  `foot_gait` follows 0.2 m/s forward and 0.3 m/s sideways, and keeps up at 1.0 m/s. The gait is still the
+  `foot_gait`-less shuffle (5 steps/s, short air time, feet low), so `foot_gait` is what makes the steps.
+- **On top of the full set they change little**: the full set already tracked well.
+
+**Gazebo** (Unitree's gains, joint damping, sim clock):
+
+| | Unitree's policy | Full set | + hard tracking | without `foot_gait` + hard tracking |
+|---|---|---|---|---|
+| no armature: stand 30 s, 3 repeats | 0.00 / 0.00 / 0.04 m | 0.01 / 0.02 / 0.01 m | **0.60 / 0.50 / 0.60 m** | 0.11 / 0.12 / 0.29 m |
+| no armature: walk 0.5 m/s | 0.51 | 0.63 | 0.56 | 0.46 |
+| armature: stand 30 s | 0.00 m | – | 0.07 m | 0.01 m |
+| armature: walk 0.5 m/s | 0.50 | – | 0.48 | 0.43 |
+
+- All stay up and walk. Without armature, the hard-tracking policy does not stand fully still; it creeps ~0.5 m in
+  30 s, every repeat.
+- **Gazebo runs are not repeatable**: in one more run without armature, Unitree's policy was already walking at
+  0.7 m/s when recording started (after the ~5 s settle) and moved 9.5 m. The 3 repeats above all stood. So single
+  Gazebo runs (all results before this round) can be one-offs; from here on, stand tests are repeated 3 times.
 
 ## Log
 
@@ -540,4 +577,4 @@ standing is penalized, $$-10\,(h - 0.78)^2$$ (sitting at 0.15 m costs ~4 per ste
 | 13 | 17 | `dr_armature_height` seeds 1 and 2 | done |
 | 14 | 18 | `dr_armature_height` seeds 1 and 2, **2000 iterations** | done |
 | 15 | 19 | `ladder_0_strict`, `baseline_strict` (pelvis/torso contact ends the episode, −10 height penalty) | done |
-| 16 | 20 | `track_hard`, `loo_foot_gait_track_hard` (Humanoid-Gym's `track_vel_hard`, `low_speed`) | running |
+| 16 | 20 | `track_hard`, `loo_foot_gait_track_hard` (Humanoid-Gym's `track_vel_hard`, `low_speed`) | done |
