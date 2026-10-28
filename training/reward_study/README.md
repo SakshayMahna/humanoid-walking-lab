@@ -485,6 +485,42 @@ Full table: `recordings/controller_test/summary.md`.
   MuJoCo), not the controller.
 - The earlier "every `foot_gait` policy falls without armature" was measured at 5 ms; at 1 ms they stand.
 
+### A stricter fall check (`ladder_0_strict`, `baseline_strict`, round 15)
+
+As in unitree_rl_gym: the episode ends when the pelvis or torso touches the ground, and pelvis height away from
+standing is penalized, $$-10\,(h - 0.78)^2$$ (sitting at 0.15 m costs ~4 per step, twice what tracking can pay).
+
+| Plain MuJoCo | Step 0 (tracking + fall) | **Step 0 + strict** | Full set | **Full set + strict** |
+|---|---|---|---|---|
+| posture | lies on its back | **upright** (0.755 m) | upright | upright |
+| forward 0.2 / 0.5 / 1.0 m/s | – | 0.00 / 0.43 / 0.71 | 0.24 / 0.49 / 0.96 | 0.20 / 0.47 / 0.97 |
+| sideways 0.3 / turning 0.5 | – | **0.00 / 0.01** | 0.20 / 0.44 | 0.20 / 0.47 |
+| action rate / power | – | **193 / 592 W** | 0.43 / 72 W | 0.46 / 79 W |
+| air time / both feet down / slip | – | **0.02 s / 74 % / 45 cm/s** | 0.25 s / 17 % / 5 cm/s | 0.26 s / 14 % / 3 cm/s |
+| without armature (5 ms) | – | simulation unstable | falls standing | falls standing |
+
+- **Step 0 + strict stands up**: closing the loophole removes sitting even with only the tracking rewards. But it
+  does not walk: it flips its motor targets violently (action rate ~400× a normal walk), the feet barely leave the
+  ground and slide, and it "buzzes" forward in a hunched, bent-knee stance. No sideways motion or turning, nothing at
+  0.2 m/s. So the fall check decides *whether* it stands; `action_rate_l2` is what turns that into steps.
+- **Full set + strict** behaves like the full set: with all 16 terms the robot never sat, so the stricter check has
+  little to change.
+
+**Gazebo** (Unitree's gains, joint damping, sim clock; one run each):
+
+| | Unitree's policy | Full set | Step 0 + strict | Full set + strict |
+|---|---|---|---|---|
+| no armature: stand 30 s | still | **still (0.00 m)** | falls within ~1.5 s | stays up, **walks away 6.5 m** |
+| no armature: walk 0.5 m/s | 0.51 | 0.63 | falls | 0.60 |
+| armature: stand 30 s | still | – | falls within ~1.5 s | still (0.08 m) |
+| armature: walk 0.5 m/s | 0.49 | – | falls | 0.50 |
+
+- The buzzing step-0 policy does not transfer at all, not even with armature.
+- The stricter check does not help in Gazebo; one seed of it drifts badly without armature (single runs, and two
+  seeds of `dr_armature_height` also split in this setup, so not conclusive).
+- **With Unitree's gains and joint damping, the normal full-set policy stands and walks in Gazebo without armature**,
+  like Unitree's policy (and like plain MuJoCo at 1 ms).
+
 ## Log
 
 | Round | Notebook version | Runs | Status |
@@ -503,4 +539,5 @@ Full table: `recordings/controller_test/summary.md`.
 | 12 | 16 | `dr_armature` seeds 1 and 2, **2000 iterations** | done (both sat down) |
 | 13 | 17 | `dr_armature_height` seeds 1 and 2 | done |
 | 14 | 18 | `dr_armature_height` seeds 1 and 2, **2000 iterations** | done |
-| 15 | 19 | `ladder_0_strict`, `baseline_strict` (pelvis/torso contact ends the episode, −10 height penalty) | running |
+| 15 | 19 | `ladder_0_strict`, `baseline_strict` (pelvis/torso contact ends the episode, −10 height penalty) | done |
+| 16 | 20 | `track_hard`, `loo_foot_gait_track_hard` (Humanoid-Gym's `track_vel_hard`, `low_speed`) | running |
