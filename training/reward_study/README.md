@@ -461,6 +461,30 @@ stand 30 s at zero command, then a separate run walking at 0.5 m/s;
 - **Baseline seed 2** (1000 iterations) agrees with seed 1 to within 0.06 m/s on tracking and 0.1 cm on foot clearance, and
   also falls standing without armature. That gives a rough size for seed noise in this study.
 
+### Explicit vs implicit damping, our policies (plain MuJoCo)
+
+Is it worth training with explicit PD, as Gazebo's controller is? [`training/controller_test.py`](../controller_test.py)
+reuses Week 3's controller test (the script computes the joint torques itself, so only the controller changes) for
+our trained policies, with **Unitree's model, gains and torque limits only** (Luis's gains are no longer used).
+Full table: `recordings/controller_test/summary.md`.
+
+| | With armature | Without armature |
+|---|---|---|
+| implicit damping (training's position actuator) | all 6 policies stand and walk | 1 ms: all stand and walk; 5 ms: both baselines fall standing |
+| explicit, $$-k_d\dot q$$ (mjlab's `IdealPdActuator`) | **identical to implicit**, every policy, 1 and 5 ms | **every policy falls**, Unitree's too, 1 and 5 ms |
+| explicit + kick ($$k_d$$ on the error's change, Gazebo's PID) | 1 ms: drifts 0.05-0.14 m standing; 5 ms: most drift metres or fall | every policy falls |
+
+- **With armature, explicit and implicit damping are the same** for all six policies, so training with explicit PD
+  (`act_explicit`) should change nothing. Not run.
+- **Without armature, explicit damping fails for every policy**: the numerical instability of light joints (ankle
+  roll, wrist roll: condition 47 at 5 ms, 9 at 1 ms, limit 4), not something a policy can learn around. A Gazebo
+  model with explicit PID needs armature.
+- **The PID's kick** is a small disturbance at Gazebo's 1 ms step and a large one at 5 ms. Joint damping removes it.
+- In the implicit, no-armature, 1 ms setup every policy stands in MuJoCo, while in Gazebo (same controller and
+  step) `dr_armature_height` seed 1 fell after 27 s. What remains between the two is the physics engine (DART vs
+  MuJoCo), not the controller.
+- The earlier "every `foot_gait` policy falls without armature" was measured at 5 ms; at 1 ms they stand.
+
 ## Log
 
 | Round | Notebook version | Runs | Status |
@@ -479,3 +503,4 @@ stand 30 s at zero command, then a separate run walking at 0.5 m/s;
 | 12 | 16 | `dr_armature` seeds 1 and 2, **2000 iterations** | done (both sat down) |
 | 13 | 17 | `dr_armature_height` seeds 1 and 2 | done |
 | 14 | 18 | `dr_armature_height` seeds 1 and 2, **2000 iterations** | done |
+| 15 | 19 | `ladder_0_strict`, `baseline_strict` (pelvis/torso contact ends the episode, −10 height penalty) | running |
