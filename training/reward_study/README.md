@@ -578,8 +578,8 @@ Standing: distance moved in the 30 s; walking: mean forward speed after 8 s.
 Heading change over a walking run (one run each): no armature, Unitree +16°, `baseline` −72° / −28°,
 `dr_armature_height` +96° / −27°; with armature, Unitree +13°, `baseline` −45° / −9°.
 
-- **The normal full-set policies work in Gazebo without armature**, like Unitree's. The earlier Gazebo falls
-  (original model) came from its controller gains, not from the policies.
+- **The normal full-set policies work in Gazebo without armature**, like Unitree's (the earlier Gazebo tests used
+  the original model's gains, or were single runs).
 - **Randomized armature does not help in Gazebo**: seed 1 is the least stable policy there. Plain MuJoCo without
   armature at 5 ms was the wrong stand-in: at Gazebo's 1 ms step all of these policies stand in MuJoCo too
   ([controller test](#explicit-vs-implicit-damping-our-policies-plain-mujoco)).
