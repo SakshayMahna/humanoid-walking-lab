@@ -44,8 +44,8 @@ one computes, and what the robot learns, or fails to learn, with and without it.
 terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained without `foot_gait` stands still without
 armature (4 of 4); every policy trained with it falls (12 of 12) unless the armature is randomized in training
 (`dr_armature` stands, but only 1 of 3 runs learned to walk at all; the others sat down). With a height fall check
-added (`dr_armature_height`), 2 of 2 seeds stand without armature, though slow walkers after 1000 iterations. So it
-is the training conditions, not the gait reward alone.
+added (`dr_armature_height`), 2 of 2 seeds stand without armature, and after 2000 iterations they walk almost as well
+as the baseline. So it is the training conditions, not the gait reward.
 
 ## The 16 terms
 
@@ -412,6 +412,28 @@ pelvis drops below 0.5 m has fallen (it stands at 0.78 m, sits at 0.11-0.15 m).
   Seed 1 barely walks yet (0.10 m/s at a 0.5 command, 46 % double support); seed 2 is further along.
 - **Round 14** trains the same variant for 2000 iterations. Without the sitting loophole, longer training should only
   help, which is what round 12 could not test.
+
+**Round 14: at 2000 iterations both seeds walk well and stand without armature.**
+
+| Plain MuJoCo | Full set (seed 1, 1000 it) | **armature randomized + height check, 2000 it, seed 1** | **seed 2** |
+|---|---|---|---|
+| forward 0.2 / 0.5 / 1.0 m/s | 0.24 / 0.49 / 0.96 | **0.14 / 0.42 / 0.87** | **0.16 / 0.42 / 0.86** |
+| sideways 0.3 m/s / turning 0.5 rad/s | 0.20 / 0.44 | 0.21 / 0.46 | 0.20 / 0.45 |
+| steps per second / both feet down | 3.3 / 17 % | 3.4 / 10 % | 3.4 / 13 % |
+| foot clearance | 3.5 cm | 3.3 cm | 3.8 cm |
+| mechanical power | 72 W | 70 W | 74 W |
+| pushes, friction 0.3 / 1.2 | fine | fine | fine |
+| **standing without armature** | falls | **stands (0.01 m)** | **stands (0.03 m)** |
+| walking without armature, 0.5 m/s | 0.49 | 0.44 | 0.43 |
+
+- The two seeds agree closely on every measure, and their training rewards end where the baseline's do at 1000
+  iterations (linear tracking 0.68 vs 0.69, turning 0.51 / 0.50 vs 0.51). **Randomizing the armature roughly
+  doubles the training needed**; the height check makes sure the extra time is spent learning to walk, not to sit.
+- Forward tracking is still ~10-15 % below the baseline at 0.5 and 1.0 m/s, and the walk is a little weaker at
+  0.2 m/s: the price of one policy that has to work on every armature from none to full.
+- **Answer to the Gazebo question (Q2), from the training side:** the policies fell standing without armature
+  because they had only ever met joints with armature. Trained on the whole range (and kept from sitting), the same
+  reward set gives policies that stand and walk both with and without it. The test that remains is Gazebo itself.
 - **Baseline seed 2** (1000 iterations) agrees with seed 1 to within 0.06 m/s on tracking and 0.1 cm on foot clearance, and
   also falls standing without armature. That gives a rough size for seed noise in this study.
 
@@ -432,4 +454,4 @@ pelvis drops below 0.5 m has fallen (it stands at 0.78 m, sits at 0.11-0.15 m).
 | 11 | 15 | `dr_armature`, `baseline` seed 2, + videos of `obs_no_clock`, `obs_lin_vel` | done |
 | 12 | 16 | `dr_armature` seeds 1 and 2, **2000 iterations** | done (both sat down) |
 | 13 | 17 | `dr_armature_height` seeds 1 and 2 | done |
-| 14 | 18 | `dr_armature_height` seeds 1 and 2, **2000 iterations** | running |
+| 14 | 18 | `dr_armature_height` seeds 1 and 2, **2000 iterations** | done |
