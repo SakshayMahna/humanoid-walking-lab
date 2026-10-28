@@ -45,8 +45,10 @@ terms polish *how*. **Open thread for Gazebo (Q2):** every policy trained withou
 armature (4 of 4); every policy trained with it falls (12 of 12) unless the armature is randomized in training
 (`dr_armature` stands, but only 1 of 3 runs learned to walk at all; the others sat down). With a height fall check
 added (`dr_armature_height`), 2 of 2 seeds stand without armature, and after 2000 iterations they walk almost as well
-as the baseline. So it is the training conditions, not the gait reward. **But in Gazebo these policies do worse than
-Unitree's** (both fall standing in the original model): MuJoCo without armature is not a stand-in for Gazebo.
+as the baseline. So it is the training conditions, not the gait reward. **But in Gazebo they do not help**: with
+Unitree's gains and joint damping, the normal full-set policies already stand without armature (3 of 3 runs, both
+seeds), while `dr_armature_height` seed 1 falls in 2 of 3. MuJoCo's failure without armature is mostly the 5 ms
+step (at 1 ms all policies stand); Gazebo steps at 1 ms. See "Gazebo repeats" below.
 
 ## The 16 terms
 
@@ -557,6 +559,33 @@ now loses reward instead of earning ~half of it. Question: does this remove the 
 - **Gazebo runs are not repeatable**: in one more run without armature, Unitree's policy was already walking at
   0.7 m/s when recording started (after the ~5 s settle) and moved 9.5 m. The 3 repeats above all stood. So single
   Gazebo runs (all results before this round) can be one-offs; from here on, stand tests are repeated 3 times.
+
+### Gazebo repeats: all earlier policies, Unitree's gains only
+
+[`gazebo_repeats.sh`](../gazebo_repeats.sh): Unitree's gains with D as joint damping (`mj_gains_vel_d`), with and
+without armature, sim clock; 3 standing runs (30 s) and 1 walking run (stand 4 s, then 0.5 m/s) per policy.
+Standing: distance moved in the 30 s; walking: mean forward speed after 8 s.
+
+| | No armature: stand (3 runs) | No armature: walk | Armature: stand (3 runs) | Armature: walk |
+|---|---|---|---|---|
+| Unitree's policy | 0.00 / 0.00 / 0.04 m | 0.51 | 0.00 / 0.00 / 0.00 m | 0.50 |
+| `baseline` seed 1 | 0.01 / 0.02 / 0.01 m | 0.63 | 0.00 / 0.02 / 0.01 m | 0.52 |
+| `baseline` seed 2 | 0.02 / 0.01 / 0.01 m | 0.57 | 0.01 / 0.02 / 0.02 m | 0.48 |
+| `loo_foot_gait` | 0.00 / 0.01 / 0.01 m | **falls at ~11 s (3 of 3 runs)** | 0.00 / 0.00 / 0.00 m | 0.42 |
+| `dr_armature_height` seed 1 | **falls (23 s) / 2.32 m / falls (12 s)** | 0.50 | 0.01 / 0.01 / 0.01 m | 0.45 |
+| `dr_armature_height` seed 2 | 0.05 / 0.10 / 0.06 m | 0.55 | 0.53 / 0.48 / 0.40 m | 0.47 |
+
+Heading change over a walking run (one run each): no armature, Unitree +16°, `baseline` −72° / −28°,
+`dr_armature_height` +96° / −27°; with armature, Unitree +13°, `baseline` −45° / −9°.
+
+- **The normal full-set policies work in Gazebo without armature**, like Unitree's. The earlier Gazebo falls
+  (original model) came from its controller gains, not from the policies.
+- **Randomized armature does not help in Gazebo**: seed 1 is the least stable policy there. Plain MuJoCo without
+  armature at 5 ms was the wrong stand-in: at Gazebo's 1 ms step all of these policies stand in MuJoCo too
+  ([controller test](#explicit-vs-implicit-damping-our-policies-plain-mujoco)).
+- **Open**: why `loo_foot_gait` (falls walking, spinning) and `dr_armature_height` seed 1 fall in Gazebo without
+  armature but not in MuJoCo at 1 ms. Controller and step now match training, so the physics engine (DART: contacts,
+  joint damping) is what is left.
 
 ## Log
 
