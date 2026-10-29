@@ -587,6 +587,29 @@ Heading change over a walking run (one run each): no armature, Unitree +16°, `b
   armature but not in MuJoCo at 1 ms. Controller and step now match training, so the physics engine (DART: contacts,
   joint damping) is what is left.
 
+### Gazebo repeats, headless (as in Week 3)
+
+`HEADLESS=1 training/gazebo_repeats.sh`: same runs without GUI or video (`gazebo/run_scenario.sh`). Standing: range
+over 3 runs (7 for the first three rows); walking: one run.
+
+| | No armature: stand | No armature: walk | Armature: stand | Armature: walk |
+|---|---|---|---|---|
+| Unitree's policy | 0.01-0.03 m, walks off 9.7 m in 1 of 7 | 0.51 | 0.02 m | 0.49 |
+| `baseline` seed 1 | 0.14-0.19 m (7 runs) | 0.63 | 0.00-0.02 m | 0.52 |
+| `baseline` seed 2 | 0.01-0.03 m (7 runs) | 0.57 | 0.01-0.02 m | 0.48 |
+| `loo_foot_gait` | 0.03-0.04 m | falls at 11 s | 0.02 m | 0.42 |
+| `dr_armature_height` seed 1 | 1.1-1.5 m | 0.50 | 0.04-0.05 m | 0.45 |
+| `dr_armature_height` seed 2 | 0.08-0.35 m | 0.55 | 0.45-0.49 m | 0.47 |
+| `ladder_0_strict` | falls (0.4, 7.1, 27.8 s) | falls | falls / 0.73 / 1.37 m | falls |
+| `baseline_strict` | 1.4 / 4.7 / 5.8 m | 0.60 | 0.02-0.07 m | 0.50 |
+| `track_hard` | 0.17-1.16 m | 0.56 | 0.05-0.12 m | 0.47 |
+| `loo_foot_gait_track_hard` | 0.04-0.17 m | 0.46 | 0.02-0.03 m | 0.43 |
+
+- Recorded and headless runs agree on the picture, but not on every number: headless, `dr_armature_height` seed 1
+  drifts instead of falling, and `baseline` seed 1 creeps ~0.17 m. The blog uses the headless numbers.
+- Unitree's policy walked off in 1 of 7 headless runs; in Week 3 (same image, model, node; identical launch logs)
+  it walked off in 5 of 7. Not explained.
+
 ## Log
 
 | Round | Notebook version | Runs | Status |

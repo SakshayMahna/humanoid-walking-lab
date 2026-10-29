@@ -25,6 +25,10 @@ policies=(
   "loo_foot_gait|$G/v9/logs/rsl_rl/g1_velocity/2026-10-26_09-24-37_loo_foot_gait_seed1"
   "dr_arm_height_s1|$G/v18/logs/rsl_rl/g1_velocity/2026-10-27_18-47-24_dr_armature_height_seed1"
   "dr_arm_height_s2|$G/v18/logs/rsl_rl/g1_velocity/2026-10-27_18-47-23_dr_armature_height_seed2"
+  "ladder_0_strict|$G/v19/logs/rsl_rl/g1_velocity/2026-10-28_09-53-30_ladder_0_strict_seed1"
+  "baseline_strict|$G/v19/logs/rsl_rl/g1_velocity/2026-10-28_09-53-30_baseline_strict_seed1"
+  "track_hard|$G/v20/logs/rsl_rl/g1_velocity/2026-10-28_11-49-18_track_hard_seed1"
+  "loo_fg_track_hard|$G/v20/logs/rsl_rl/g1_velocity/2026-10-28_11-49-18_loo_foot_gait_track_hard_seed1"
 )
 for variant in mj_gains_vel_d mj_gains_vel_d_armature; do
   arm=noarm; [ $variant = mj_gains_vel_d_armature ] && arm=arm
