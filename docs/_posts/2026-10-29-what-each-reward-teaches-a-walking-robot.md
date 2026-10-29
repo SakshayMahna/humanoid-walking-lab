@@ -2,6 +2,10 @@
 title: "Week 4 — What Each Reward Teaches a Walking Robot"
 excerpt: "Training the Unitree G1 to walk with reward terms added and removed one at a time, to see what each one really does."
 categories: blog
+header:
+  overlay_image: /assets/images/week-4/banner.png
+  overlay_filter: 0.4
+  teaser: /assets/images/week-4/banner.png
 ---
 
 Last week ([Week 3]({{ site.baseurl }}{% post_url 2026-10-24-from-mujoco-to-gazebo %})) ended with a question I couldn't answer by looking at simulators: what does a walking policy actually learn from its training? Unitree's walking task gives the robot **16 rewards**, and I had no idea which ones matter.

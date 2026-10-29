@@ -28,6 +28,7 @@ exercises; only colours, lighting and layout are added. Run them from the repo r
 | `week2_linkedin.py` | `assets/videos/week-2/policy_compare.gif` and `banner.png`: both policies on four commands |
 | `week3_assets.py [banner] [diagram] [kick] [damping] [grid] [gazebo] [variants]` | `assets/images/week-3/` (banner, SVG charts and diagram, GIFs) and `assets/videos/week-3/` (Gazebo clips as MP4) |
 | `week3_runs.sh` | The sim-clock Gazebo runs behind the Week 3 tables → `recordings/week3/` (needs Docker) |
+| `week4_banner.py [preview_dir]` | `assets/images/week-4/banner.png`: the reward ladder (lying → walking) as ghosts of the real trained policies |
 | `week4_videos.py [clip ...] [--rerender]` | `assets/videos/week-4/`: training-run clips in plain MuJoCo, same camera and test for every robot (needs the Kaggle run outputs); the Gazebo tables and clips come from `training/gazebo_repeats.sh` |
 
 ```bash
