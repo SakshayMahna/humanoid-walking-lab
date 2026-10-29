@@ -28,6 +28,7 @@ exercises; only colours, lighting and layout are added. Run them from the repo r
 | `week2_linkedin.py` | `assets/videos/week-2/policy_compare.gif` and `banner.png`: both policies on four commands |
 | `week3_assets.py [banner] [diagram] [kick] [damping] [grid] [gazebo] [variants]` | `assets/images/week-3/` (banner, SVG charts and diagram, GIFs) and `assets/videos/week-3/` (Gazebo clips as MP4) |
 | `week3_runs.sh` | The sim-clock Gazebo runs behind the Week 3 tables → `recordings/week3/` (needs Docker) |
+| `week4_videos.py [clip ...] [--rerender]` | `assets/videos/week-4/`: training-run clips in plain MuJoCo, same camera and test for every robot (needs the Kaggle run outputs); the Gazebo tables and clips come from `training/gazebo_repeats.sh` |
 
 ```bash
 .venv/bin/python docs/_scripts/week2_assets.py robot
@@ -44,3 +45,4 @@ Post URLs come from the file name (`permalink: /blog/:title/`), so name new post
 | 1 | [What a Pendulum Taught Me About Humanoid Control](https://sakshaymahna.github.io/humanoid-walking-lab/blog/what-a-pendulum-taught-me-about-humanoid-control/) |
 | 2 | [Making the G1 Walk](https://sakshaymahna.github.io/humanoid-walking-lab/blog/making-the-unitree-g1-walk/) |
 | 3 | [From MuJoCo to Gazebo](https://sakshaymahna.github.io/humanoid-walking-lab/blog/from-mujoco-to-gazebo/) |
+| 4 | [What Each Reward Teaches a Walking Robot](https://sakshaymahna.github.io/humanoid-walking-lab/blog/what-each-reward-teaches-a-walking-robot/) |

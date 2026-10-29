@@ -8,6 +8,8 @@ Last week ([Week 3]({{ site.baseurl }}{% post_url 2026-10-24-from-mujoco-to-gaze
 
 So this week I trained the robot myself, more than 30 times, each time with a different set of rewards. With only the speed command as a goal, the robot lies down on its back. One more penalty and it stands up and shuffles. One more and it walks.
 
+At the end, I took the trained policies to Gazebo, last week's simulator, to see how they cope there.
+
 All the code is in the [`training/`](https://github.com/SakshayMahna/humanoid-walking-lab/tree/main/training) folder, and every number is in the [study notes](https://github.com/SakshayMahna/humanoid-walking-lab/blob/main/training/reward_study/README.md).
 
 ## How the robot learns to walk
@@ -253,81 +255,12 @@ I also tried two changes to what the policy *sees*:
 - **Removing the gait clock input**, together with `foot_gait`: the same result as removing only `foot_gait`. The input by itself teaches nothing; the reward that uses it does.
 - **Adding the body's speed as an input** (as `walk.onnx` has): nothing measurable in plain MuJoCo, and no dead zone.
 
-## What each reward does
-
-| Reward | What the robot learns from it | Matters? |
-|---|---|---|
-| speed tracking | to follow the command, but alone it also pays for lying down | the goal |
-| fall penalty | not to tip over; sitting doesn't count as falling | yes, with a loophole |
-| `body_orientation_l2` | to sit up instead of lying down | a little |
-| `pose` | to keep the upper body still | yes |
-| `action_rate_l2` | to stand up, and to move smoothly | yes, a lot |
-| `foot_gait` | to take real steps, also at slow speeds | yes, a lot |
-| `foot_clearance` | about 1 cm more foot lift | a little |
-| torso wobble terms | a calmer, cheaper walk | a little |
-| `joint_acc_l2`, `foot_slip`, `soft_landing`, `stand_still` | nothing clear in these tests | not here |
-
-## Training for Gazebo's joints
-
-In [Week 3]({{ site.baseurl }}{% post_url 2026-10-24-from-mujoco-to-gazebo %}), adding the motors' **armature** (the extra inertia of each motor's rotor) to Gazebo's robot model was part of what made the policies behave there. Plain MuJoCo shows the same weak spot: remove the armature, and every policy I trained with `foot_gait` falls over while standing still (at the training time step of 5 ms).
-
-So I tried training for it: give every one of the 4096 training robots a random amount of armature, between none and the full value:
-
-$$
-\text{armature}_j \leftarrow s \cdot \text{armature}_j, \qquad s \sim \mathcal{U}(0, 1) \text{ per robot}
-$$
-
-The task got harder, and **the robots sat down again**, even with all 16 rewards. Two of three runs found sitting before they found walking, and stayed there. It's the same loophole as step 0: the fall check only looks at tilt.
-
-So I closed it: a robot whose pelvis drops below 0.5 m has now fallen too. It stands at 0.78 m and sits at about 0.15 m.
-
-<video autoplay loop muted playsinline width="100%" aria-label="With randomized armature the robot sits down; with a height fall check added it walks">
-  <source src="{{ '/assets/videos/week-4/armature.mp4' | relative_url }}" type="video/mp4">
-</video>
-
-With the height check, both random seeds learned to walk. They needed twice the training (2000 iterations). In plain MuJoCo they now stand still without armature:
-
-| Plain MuJoCo | All 16 rewards | Randomized armature + height check |
-|---|---|---|
-| walking at 0.5 / 1.0 m/s | 0.49 / 0.96 | 0.42 / 0.87 |
-| pushes, frictions | fine | fine |
-| **standing without armature** | **falls** | **stands** |
-
-## And in Gazebo?
-
-The real test is Gazebo, with the corrected controller from Week 3: Unitree's gains, with the D part done by the joint's damping, exactly as in training. I ran all six policies there, without armature (the hard case) and with it. All runs use the same settings as in Week 3: Gazebo's simulation clock, headless, standing 30 seconds (three runs, seven for the first three policies) and walking at 0.5 m/s. The videos are separate recorded runs.
-
-<video autoplay loop muted playsinline width="100%" aria-label="Gazebo without armature, standing 30 s: five policies stay up, random armature seed 1 falls">
-  <source src="{{ '/assets/videos/week-4/gazebo_stand.mp4' | relative_url }}" type="video/mp4">
-</video>
-
-<video autoplay loop muted playsinline width="100%" aria-label="Gazebo without armature, walking at 0.5 m/s: five policies walk, the one without foot_gait falls">
-  <source src="{{ '/assets/videos/week-4/gazebo_walk.mp4' | relative_url }}" type="video/mp4">
-</video>
-
-| Gazebo, corrected controller | No armature: standing 30 s | No armature: walking at 0.5 m/s | Armature: standing 30 s | Armature: walking at 0.5 m/s |
-|---|---|---|---|---|
-| Unitree's policy | 0.01-0.03 m, **walks off 9.7 m in 1 of 7 runs** | 0.51 | 0.02 m | 0.49 |
-| All 16 rewards, seed 1 | 0.14-0.19 m (7 runs) | 0.63 | 0.00-0.02 m | 0.52 |
-| All 16 rewards, seed 2 | 0.01-0.03 m (7 runs) | 0.57 | 0.01-0.02 m | 0.48 |
-| Without `foot_gait` | 0.03-0.04 m | **falls after 11 s** | 0.02 m | 0.42 |
-| Random armature, seed 1 | **1.1-1.5 m** | 0.50 | 0.04-0.05 m | 0.45 |
-| Random armature, seed 2 | 0.08-0.35 m | 0.55 | **0.45-0.49 m** | 0.47 |
-
-**The normal policies work in Gazebo, even without armature.** Seed 2 stands as still as Unitree's policy, and seed 1 creeps about 15 cm in 30 seconds. Neither walked off in seven runs. Unitree's policy did once, the same thing it did in 5 of 7 runs in Week 3. Without armature, our policies walk a bit too fast (0.57 and 0.63 m/s instead of 0.5) and turn more on the way (31° and 73° in 20 seconds, against 16° for Unitree's policy; one run each).
-
-So falling without armature in MuJoCo didn't carry over to Gazebo. In plain MuJoCo, the time step decides it: training runs the physics every 5 ms, Gazebo every 1 ms. At 5 ms without armature, the two normal policies fall; at 1 ms, all six policies stand. The fall I trained against only happens at the training time step.
-
-**Training with random armature didn't help in Gazebo.** Without armature, seed 1 drifts more than a metre in every run, the most of all six. In the recorded runs (the video) it even fell, in two of three. Seed 2 drifts about half a metre *with* armature. I fixed a problem Gazebo doesn't have, and the policies got a little worse at everything else.
-
-**The policy without `foot_gait` stands but can't walk without armature.** It shuffles off, starts spinning and falls after about 11 seconds, in every run I tried. With armature it walks fine. I haven't untangled why.
-
 ## Closing the two loopholes
 
-Two weak spots came up again and again above:
+Two weak spots came up in both directions:
 
-- **"Don't fall" only checks tilt**, so lying and sitting count as standing.
-- **The tracking reward pays for standing still** (43% of the maximum), so a robot that can't find a gait for slow commands just stops: the dead zone.
+- **"Don't fall" only checks tilt**, so lying and sitting count as standing (steps 0 to 2).
+- **The tracking reward pays for standing still** (43% of the maximum), so a robot that can't find a gait for slow commands just stops: the dead zone (step 3, and without `foot_gait`).
 
 Other humanoid training setups close both. Unitree's older Isaac Gym code ends an episode when the pelvis touches the ground and penalises the pelvis for being away from its standing height. Humanoid-Gym adds tracking rewards that punish moving too slowly. I tried each.
 
@@ -358,7 +291,7 @@ Sitting at 0.15 m now costs about 4 per step, twice what tracking can pay. I add
 
 Its motor targets jump about 450 times more than in a normal walk. The feet barely leave the ground and slide 45 cm/s. The stricter check decides **whether** the robot stays up. It takes `action_rate_l2` to turn that into steps.
 
-On the full set, the stricter check changes almost nothing in MuJoCo, because the full set never sat down anyway. **In Gazebo it made things worse** (same headless runs as above). The step-0 policy falls in every run without armature, and with armature it falls while walking. Without armature, the full set with the strict check walks off while standing in all three runs (1.4 to 5.8 m), where the normal full set stays within 20 cm. With armature it's fine.
+On the full set, the stricter check changes almost nothing in MuJoCo, because the full set never sat down anyway.
 
 ### Harder speed tracking
 
@@ -395,7 +328,78 @@ I added them to the policy **without `foot_gait`**, the one with the dead zone, 
 
 **The dead zone is gone, but the shuffle stays.** So the dead zone came from the tracking reward paying for standing still, not from the missing gait reward. Real steps still need `foot_gait`. Added to the full set, the hard tracking changed little, because the full set already tracked well.
 
-In Gazebo without armature both hard-tracking policies stand and walk, but neither stands quite still. The full set with hard tracking drifts 0.2 to 1.2 m in 30 seconds. Without `foot_gait` it moves up to 0.17 m. It also walked at 0.46 m/s without falling, where the plain policy without `foot_gait` fell (one walking run each, so not conclusive). With armature both stand and walk.
+## What each reward does
+
+| Reward | What the robot learns from it | Matters? |
+|---|---|---|
+| speed tracking | to follow the command, but alone it also pays for lying down | the goal |
+| fall penalty | not to tip over; sitting doesn't count as falling | yes, with a loophole |
+| `body_orientation_l2` | to sit up instead of lying down | a little |
+| `pose` | to keep the upper body still | yes |
+| `action_rate_l2` | to stand up, and to move smoothly | yes, a lot |
+| `foot_gait` | to take real steps | yes, a lot |
+| `foot_clearance` | about 1 cm more foot lift | a little |
+| torso wobble terms | a calmer, cheaper walk | a little |
+| `joint_acc_l2`, `foot_slip`, `soft_landing`, `stand_still` | nothing clear in these tests | not here |
+| *strict fall check* (added) | to stay on its feet, but without the other rewards it jitters instead of walking | closes the sitting loophole |
+| *hard speed tracking* (added) | to follow slow commands too: no dead zone, but no real steps | closes the dead-zone loophole |
+
+## Training for Gazebo's joints
+
+So far everything ran in MuJoCo. Before going to Gazebo, one more experiment aimed at it. In [Week 3]({{ site.baseurl }}{% post_url 2026-10-24-from-mujoco-to-gazebo %}), adding the motors' **armature** (the extra inertia of each motor's rotor) to Gazebo's robot model was part of what made the policies behave there. Plain MuJoCo shows the same weak spot: remove the armature, and every policy I trained with `foot_gait` falls over while standing still (at the training time step of 5 ms).
+
+So I tried training for it: give every one of the 4096 training robots a random amount of armature, between none and the full value:
+
+$$
+\text{armature}_j \leftarrow s \cdot \text{armature}_j, \qquad s \sim \mathcal{U}(0, 1) \text{ per robot}
+$$
+
+The task got harder, and **the robots sat down again**, even with all 16 rewards. Two of three runs found sitting before they found walking, and stayed there. It's the same loophole as step 0: the fall check only looks at tilt.
+
+Here I closed it with a simple height check: a robot whose pelvis drops below 0.5 m has fallen too. It stands at 0.78 m and sits at about 0.15 m.
+
+<video autoplay loop muted playsinline width="100%" aria-label="With randomized armature the robot sits down; with a height fall check added it walks">
+  <source src="{{ '/assets/videos/week-4/armature.mp4' | relative_url }}" type="video/mp4">
+</video>
+
+With the height check, both random seeds learned to walk. They needed twice the training (2000 iterations). In plain MuJoCo they now stand still without armature:
+
+| Plain MuJoCo | All 16 rewards | Randomized armature + height check |
+|---|---|---|
+| walking at 0.5 / 1.0 m/s | 0.49 / 0.96 | 0.42 / 0.87 |
+| pushes, frictions | fine | fine |
+| **standing without armature** | **falls** | **stands** |
+
+## And in Gazebo?
+
+The real test is Gazebo, with the corrected controller from Week 3: Unitree's gains, with the D part done by the joint's damping, exactly as in training. I ran six policies there: Unitree's, the full set (two seeds), the full set without `foot_gait`, and the two random-armature seeds, each without armature (the hard case) and with it. All runs use the same settings as in Week 3: Gazebo's simulation clock, headless, standing 30 seconds (three runs, seven for the first three policies) and walking at 0.5 m/s. The videos are separate recorded runs.
+
+<video autoplay loop muted playsinline width="100%" aria-label="Gazebo without armature, standing 30 s: five policies stay up, random armature seed 1 falls">
+  <source src="{{ '/assets/videos/week-4/gazebo_stand.mp4' | relative_url }}" type="video/mp4">
+</video>
+
+<video autoplay loop muted playsinline width="100%" aria-label="Gazebo without armature, walking at 0.5 m/s: five policies walk, the one without foot_gait falls">
+  <source src="{{ '/assets/videos/week-4/gazebo_walk.mp4' | relative_url }}" type="video/mp4">
+</video>
+
+| Gazebo, corrected controller | No armature: standing 30 s | No armature: walking at 0.5 m/s | Armature: standing 30 s | Armature: walking at 0.5 m/s |
+|---|---|---|---|---|
+| Unitree's policy | 0.01-0.03 m, **walks off 9.7 m in 1 of 7 runs** | 0.51 | 0.02 m | 0.49 |
+| All 16 rewards, seed 1 | 0.14-0.19 m (7 runs) | 0.63 | 0.00-0.02 m | 0.52 |
+| All 16 rewards, seed 2 | 0.01-0.03 m (7 runs) | 0.57 | 0.01-0.02 m | 0.48 |
+| Without `foot_gait` | 0.03-0.04 m | **falls after 11 s** | 0.02 m | 0.42 |
+| Random armature, seed 1 | **1.1-1.5 m** | 0.50 | 0.04-0.05 m | 0.45 |
+| Random armature, seed 2 | 0.08-0.35 m | 0.55 | **0.45-0.49 m** | 0.47 |
+
+**The normal policies work in Gazebo, even without armature.** Seed 2 stands as still as Unitree's policy, and seed 1 creeps about 15 cm in 30 seconds. Neither walked off in seven runs. Unitree's policy did once, the same thing it did in 5 of 7 runs in Week 3. Without armature, our policies walk a bit too fast (0.57 and 0.63 m/s instead of 0.5) and turn more on the way (31° and 73° in 20 seconds, against 16° for Unitree's policy; one run each).
+
+So falling without armature in MuJoCo didn't carry over to Gazebo. In plain MuJoCo, the time step decides it: training runs the physics every 5 ms, Gazebo every 1 ms. At 5 ms without armature, the two normal policies fall; at 1 ms, all six policies stand. The fall I trained against only happens at the training time step.
+
+**Training with random armature didn't help in Gazebo.** Without armature, seed 1 drifts more than a metre in every run, the most of all six. In the recorded runs (the video) it even fell, in two of three. Seed 2 drifts about half a metre *with* armature. I fixed a problem Gazebo doesn't have, and the policies got a little worse at everything else.
+
+**The policy without `foot_gait` stands but can't walk without armature.** It shuffles off, starts spinning and falls after about 11 seconds, in every run I tried. With armature it walks fine. I haven't untangled why.
+
+**The two loophole fixes don't help in Gazebo either.** The step-0 policy with the strict fall check falls in every run without armature, and with armature it falls while walking. The full set with the strict check walks off while standing in all three runs without armature (1.4 to 5.8 m), where the normal full set stays within 20 cm. Hard tracking makes standing less steady: the full set with it drifts 0.2 to 1.2 m in 30 seconds without armature. The policy without `foot_gait` + hard tracking walked at 0.46 m/s without falling, where the plain one fell (one walking run each, so not conclusive). With armature, all of them except the step-0 policy stand and walk.
 
 ## What I learned
 
