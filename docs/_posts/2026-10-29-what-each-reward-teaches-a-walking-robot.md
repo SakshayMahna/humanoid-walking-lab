@@ -77,13 +77,13 @@ Every trained policy then got two checks:
    - power used;
    - four pushes, two floor frictions;
    - the robot without armature;
-   - a video: stand for 4 seconds, then walk forward at 0.5 m/s, always filmed with the same camera.
+   - a clip: stand for 4 seconds, then walk forward at 0.5 m/s, always filmed with the same camera.
 
 Most variants were trained once. To know how much a result changes by chance, I trained the full set twice with different random seeds. The two runs differed by up to 0.06 m/s in walking speed and 0.1 cm in foot lift. Anything smaller than that, I count as "no clear effect".
 
 ## Adding rewards one group at a time
 
-Each video shows one step next to the step before it, in plain MuJoCo: stand for 4 seconds, then walk forward at 0.5 m/s.
+Each clip shows one step next to the step before it, in plain MuJoCo: the last 2 seconds of standing, then the command "walk forward at 0.5 m/s".
 
 ### Step 0: follow the command
 
@@ -98,9 +98,7 @@ In plain English: you get the full point when your forward, sideways and turning
 
 **What the robot learned: to lie on its back with its legs in the air.** It never walks.
 
-<video autoplay loop muted playsinline width="50%" aria-label="Step 0: the robot lies on its back with its legs in the air">
-  <source src="{{ '/assets/videos/week-4/step_0.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Step 0: the robot lies on its back with its legs in the air]({{ '/assets/images/week-4/step_0.gif' | relative_url }}){: loading="lazy"}
 
 Two things make lying down the best option:
 
@@ -123,9 +121,7 @@ $$g$$ is the direction of gravity seen from the torso. When the torso is upright
 
 **What the robot learned: to sit up, propped on its arms.** The torso is upright now, so the penalty is gone, but the robot is still on the floor.
 
-<video autoplay loop muted playsinline width="100%" aria-label="Step 0 lies on its back; step 1 sits up, propped on its arms">
-  <source src="{{ '/assets/videos/week-4/step_1.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Step 0 lies on its back; step 1 sits up, propped on its arms]({{ '/assets/images/week-4/step_1.gif' | relative_url }}){: loading="lazy"}
 
 ### Step 2: + keep the default posture
 
@@ -137,9 +133,7 @@ $$q_j$$ is joint $$j$$'s angle and $$q_{0,j}$$ its angle in the default standing
 
 **What the robot learned: to sit upright.** The posture reward doesn't help here, and the reason is its shape. Near the default pose it pays well and pulls the joints back. A sitting robot is far from the default pose, where this reward is practically zero *and flat*. Moving a little closer still earns nothing, so the reward gives the training no direction to go in.
 
-<video autoplay loop muted playsinline width="100%" aria-label="Step 1 sits propped on its arms; step 2 sits upright">
-  <source src="{{ '/assets/videos/week-4/step_2.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Step 1 sits propped on its arms; step 2 sits upright]({{ '/assets/images/week-4/step_2.gif' | relative_url }}){: loading="lazy"}
 
 ### Step 3: + move smoothly
 
@@ -151,9 +145,7 @@ The first penalises changing the motor targets a lot from one step to the next. 
 
 **What the robot learned: to stand up.** It's the first policy that walks. Getting down to the floor, rocking and propping all need big, sudden changes in the motor targets, and now those cost reward. Sitting no longer pays.
 
-<video autoplay loop muted playsinline width="100%" aria-label="Step 2 sits upright; step 3 stands up and shuffles forward">
-  <source src="{{ '/assets/videos/week-4/step_3.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Step 2 sits upright; step 3 stands up and shuffles forward]({{ '/assets/images/week-4/step_3.gif' | relative_url }}){: loading="lazy"}
 
 Two follow-up runs showed which term does it:
 
@@ -167,17 +159,18 @@ But this robot **shuffles**: 6.1 tiny steps per second, feet lifted only 1.4 cm,
 The gait clock is a timer that runs through a cycle every 0.6 seconds, with the right foot half a cycle behind the left. For each foot, the clock says "this foot should be on the ground" for the first 56% of its cycle and "in the air" for the rest:
 
 $$
-\phi_\text{foot} = \left(\frac{t}{0.6} + \text{offset}_\text{foot}\right) \bmod 1, \qquad
-r_\text{gait} = 0.5 \cdot \frac{\#\{\text{feet where contact matches } \phi < 0.56\}}{2}
+\phi_\text{foot} = \left(\frac{t}{0.6} + \text{offset}_\text{foot}\right) \bmod 1
+$$
+
+$$
+r_\text{gait} = 0.5 \cdot \frac{\text{number of feet where contact matches } (\phi_\text{foot} < 0.56)}{2}
 $$
 
 The reward is the share of feet doing what the clock says. It only counts when the robot is told to move.
 
 **What the robot learned: real, alternating steps.** 3.4 steps per second (one step per foot in each 0.6 s clock cycle), 0.25 s in the air per step, and **the dead zone is gone**: at 0.2 m/s it now walks at 0.24 m/s. The gait reward makes the robot step even when the command is small.
 
-<video autoplay loop muted playsinline width="100%" aria-label="Step 3 shuffles with tiny steps; step 4 takes real alternating steps">
-  <source src="{{ '/assets/videos/week-4/step_4.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Step 3 shuffles with tiny steps; step 4 takes real alternating steps]({{ '/assets/images/week-4/step_4.gif' | relative_url }}){: loading="lazy"}
 
 ### Steps 5 to 8: polishing the walk
 
@@ -201,15 +194,13 @@ With these added, the walk changed only a little:
 - **`stand_still` showed no effect.** The robot already stood still because of `pose`.
 - **`foot_slip` and `soft_landing` changed less than the seed noise.**
 
-<video autoplay loop muted playsinline width="100%" aria-label="Step 4 and the full set of 16 rewards walk almost the same way">
-  <source src="{{ '/assets/videos/week-4/steps_5_8.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Step 4 and the full set of 16 rewards walk almost the same way]({{ '/assets/images/week-4/steps_5_8.gif' | relative_url }}){: loading="lazy"}
 
 Steps 0 to 4 decide **whether** the robot walks. Steps 5 to 8 only change **how** it walks.
 
 ## Taking one reward away
 
-The other direction: all 16 terms, minus one. Each video shows the full set next to the set without one term.
+The other direction: all 16 terms, minus one. Each clip shows the full set next to the set without one term.
 
 **Without `foot_gait`, the shuffle comes back**, even though all the foot terms are still there:
 
@@ -217,9 +208,7 @@ The other direction: all 16 terms, minus one. Each video shows the full set next
 - the dead zone in full: no movement at all at 0.2 m/s forward or 0.3 m/s sideways;
 - 0.64 m/s when told to walk at 1.0.
 
-<video autoplay loop muted playsinline width="100%" aria-label="The full set takes real steps; without foot_gait the robot shuffles">
-  <source src="{{ '/assets/videos/week-4/without_foot_gait.mp4' | relative_url }}" type="video/mp4">
-</video>
+![The full set takes real steps; without foot_gait the robot shuffles]({{ '/assets/images/week-4/without_foot_gait.gif' | relative_url }}){: loading="lazy"}
 
 The foot terms only refine a gait; they don't create one.
 
@@ -229,9 +218,7 @@ The foot terms only refine a gait; they don't create one.
 - the robot uses twice the power (144 W vs 72 W);
 - its feet lift twice as high.
 
-<video autoplay loop muted playsinline width="100%" aria-label="The full set keeps its arms still; without pose the arms swing">
-  <source src="{{ '/assets/videos/week-4/without_pose.mp4' | relative_url }}" type="video/mp4">
-</video>
+![The full set keeps its arms still; without pose the arms swing]({{ '/assets/images/week-4/without_pose.gif' | relative_url }}){: loading="lazy"}
 
 `pose` is mainly what keeps the upper body still.
 
@@ -241,9 +228,7 @@ The foot terms only refine a gait; they don't create one.
 - turning nearly breaks (0.15 rad/s when told to turn at 0.5);
 - walking straight still works.
 
-<video autoplay loop muted playsinline width="100%" aria-label="The full set and the policy trained without action_rate_l2, both walking straight">
-  <source src="{{ '/assets/videos/week-4/without_action_rate.mp4' | relative_url }}" type="video/mp4">
-</video>
+![The full set and the policy trained without action_rate_l2, both walking straight]({{ '/assets/images/week-4/without_action_rate.gif' | relative_url }}){: loading="lazy"}
 
 | Without | What changed |
 |---|---|
@@ -278,9 +263,7 @@ $$
 
 Sitting at 0.15 m now costs about 4 per step, twice what tracking can pay. I added this to step 0 (tracking and the fall penalty only) and to the full set.
 
-<video autoplay loop muted playsinline width="100%" aria-label="Step 0 lies on its back; with the strict fall check it stands up but jitters forward with bent knees">
-  <source src="{{ '/assets/videos/week-4/strict_fall.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Step 0 lies on its back; with the strict fall check it stands up but jitters forward with bent knees]({{ '/assets/images/week-4/strict_fall.gif' | relative_url }}){: loading="lazy"}
 
 **Step 0 now stands up, but it doesn't walk.** It jitters forward, hunched, with bent knees:
 
@@ -318,9 +301,7 @@ The first is a sharper peak plus a straight-line part that keeps pulling even fa
 
 I added them to the policy **without `foot_gait`**, the one with the dead zone, and to the full set:
 
-<video autoplay loop muted playsinline width="100%" aria-label="Without foot_gait the robot shuffles; with hard tracking it still shuffles, but keeps up with the command">
-  <source src="{{ '/assets/videos/week-4/hard_tracking.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Without foot_gait the robot shuffles; with hard tracking it still shuffles, but keeps up with the command]({{ '/assets/images/week-4/hard_tracking.gif' | relative_url }}){: loading="lazy"}
 
 | Plain MuJoCo | Without `foot_gait` | Without `foot_gait` + hard tracking |
 |---|---|---|
@@ -362,9 +343,7 @@ The task got harder, and **the robots sat down again**, even with all 16 rewards
 
 Here I closed it with a simple height check: a robot whose pelvis drops below 0.5 m has fallen too. It stands at 0.78 m and sits at about 0.15 m.
 
-<video autoplay loop muted playsinline width="100%" aria-label="With randomized armature the robot sits down; with a height fall check added it walks">
-  <source src="{{ '/assets/videos/week-4/armature.mp4' | relative_url }}" type="video/mp4">
-</video>
+![With randomized armature the robot sits down; with a height fall check added it walks]({{ '/assets/images/week-4/armature.gif' | relative_url }}){: loading="lazy"}
 
 With the height check, both random seeds learned to walk. They needed twice the training (2000 iterations). In plain MuJoCo they now stand still without armature:
 
@@ -376,15 +355,11 @@ With the height check, both random seeds learned to walk. They needed twice the 
 
 ## And in Gazebo?
 
-The real test is Gazebo, with the corrected controller from Week 3: Unitree's gains, with the D part done by the joint's damping, exactly as in training. I ran six policies there: Unitree's, the full set (two seeds), the full set without `foot_gait`, and the two random-armature seeds, each without armature (the hard case) and with it. All runs use the same settings as in Week 3: Gazebo's simulation clock, headless, standing 30 seconds (three runs, seven for the first three policies) and walking at 0.5 m/s. The videos are separate recorded runs.
+The real test is Gazebo, with the corrected controller from Week 3: Unitree's gains, with the D part done by the joint's damping, exactly as in training. I ran six policies there: Unitree's, the full set (two seeds), the full set without `foot_gait`, and the two random-armature seeds, each without armature (the hard case) and with it. All runs use the same settings as in Week 3: Gazebo's simulation clock, headless, standing 30 seconds (three runs, seven for the first three policies) and walking at 0.5 m/s. The clips are separate recorded runs, at 3x speed.
 
-<video autoplay loop muted playsinline width="100%" aria-label="Gazebo without armature, standing 30 s: five policies stay up, random armature seed 1 falls">
-  <source src="{{ '/assets/videos/week-4/gazebo_stand.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Gazebo without armature, standing 30 s: five policies stay up, random armature seed 1 falls]({{ '/assets/images/week-4/gazebo_stand.gif' | relative_url }}){: loading="lazy"}
 
-<video autoplay loop muted playsinline width="100%" aria-label="Gazebo without armature, walking at 0.5 m/s: five policies walk, the one without foot_gait falls">
-  <source src="{{ '/assets/videos/week-4/gazebo_walk.mp4' | relative_url }}" type="video/mp4">
-</video>
+![Gazebo without armature, walking at 0.5 m/s: five policies walk, the one without foot_gait falls]({{ '/assets/images/week-4/gazebo_walk.gif' | relative_url }}){: loading="lazy"}
 
 | Gazebo, corrected controller | No armature: standing 30 s | No armature: walking at 0.5 m/s | Armature: standing 30 s | Armature: walking at 0.5 m/s |
 |---|---|---|---|---|
@@ -399,7 +374,7 @@ The real test is Gazebo, with the corrected controller from Week 3: Unitree's ga
 
 So falling without armature in MuJoCo didn't carry over to Gazebo. In plain MuJoCo, the time step decides it: training runs the physics every 5 ms, Gazebo every 1 ms. At 5 ms without armature, the two normal policies fall; at 1 ms, all six policies stand. The fall I trained against only happens at the training time step.
 
-**Training with random armature didn't help in Gazebo.** Without armature, seed 1 drifts more than a metre in every run, the most of all six. In the recorded runs (the video) it even fell, in two of three. Seed 2 drifts about half a metre *with* armature. I fixed a problem Gazebo doesn't have, and the policies got a little worse at everything else.
+**Training with random armature didn't help in Gazebo.** Without armature, seed 1 drifts more than a metre in every run, the most of all six. In the recorded runs (the clip) it even fell, in two of three. Seed 2 drifts about half a metre *with* armature. I fixed a problem Gazebo doesn't have, and the policies got a little worse at everything else.
 
 **The policy without `foot_gait` stands but can't walk without armature.** It shuffles off, starts spinning and falls after about 11 seconds, in every run I tried. With armature it walks fine. I haven't untangled why.
 

@@ -4,9 +4,10 @@ Plain MuJoCo (Unitree's model, 5 ms physics, policy every 20 ms), the camera of 
 each robot, and the same test: stand 4 s, then walk forward at 0.5 m/s for 16 s. Each clip is joined from tiles with
 gazebo/side_by_side.py.
 
-Run from the repo root:  .venv/bin/python docs/_scripts/week4_videos.py [clip ...] [--rerender]
+Run from the repo root:  .venv/bin/python docs/_scripts/week4_videos.py [clip ...] [--rerender] [gazebo]
 (robots already filmed are reused unless --rerender)
-Outputs go to docs/assets/videos/week-4/ (single tiles in recordings/week4/).
+Outputs: looping GIFs in docs/assets/images/week-4/ (tiles and MP4 clips in recordings/week4/).
+`gazebo` converts the Gazebo clips recordings/week4/gazebo_{stand,walk}.mp4 into GIFs at 3x speed.
 """
 
 import subprocess
@@ -22,7 +23,7 @@ from unitree_utils import build_unitree_model  # noqa: E402
 render_policy.SEQUENCE = [(4, (0.0, 0.0, 0.0), "stand"), (16, (0.5, 0.0, 0.0), "forward 0.5 m/s")]
 RUNS = REPO / "training" / "kaggle" / "output"
 TILES = REPO / "recordings" / "week4"
-OUT = REPO / "docs" / "assets" / "videos" / "week-4"
+OUT = REPO / "docs" / "assets" / "images" / "week-4"
 POLICIES = {
     "ladder_0": "v5/logs/rsl_rl/g1_velocity/2026-10-25_15-26-07_ladder_0_seed1",
     "ladder_1": "v5/logs/rsl_rl/g1_velocity/2026-10-25_15-26-08_ladder_1_seed1",
@@ -76,11 +77,33 @@ def main(clips):
         print("rendered", name, flush=True)
     for clip in clips:
         title, tiles = CLIPS[clip]
-        subprocess.run([sys.executable, str(REPO / "gazebo" / "side_by_side.py"), str(OUT / f"{clip}.mp4"),
-                        "--title", f"{title} (stand 4 s, then walk at 0.5 m/s)", "--seconds", str(seconds),
+        video = TILES / f"clip_{clip}.mp4"
+        subprocess.run([sys.executable, str(REPO / "gazebo" / "side_by_side.py"), str(video),
+                        "--title", f"{title} (told to walk at 0.5 m/s)", "--seconds", str(seconds),
                         *[f"{label}|{TILES / name}.mp4" for label, name in tiles]], check=True)
+        to_gif(video, OUT / f"{clip}.gif", start=2.0, seconds=10.0)     # 2 s standing, then 8 s of walking
+
+
+def to_gif(video, gif, start=0.0, seconds=None, speed=1.0, fps=10, width=800, dither=True):
+    """Looping GIF of an MP4, small enough for the blog (2-3 MB for a 10 s two-tile clip)."""
+    use = "dither=bayer:bayer_scale=4" if dither else "dither=none"
+    length = ["-t", str(seconds)] if seconds else []
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", str(start), *length, "-i", str(video), "-vf",
+                    f"setpts=PTS/{speed},fps={fps},scale={width}:-1:flags=lanczos,split[a][b];"
+                    f"[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse={use}:diff_mode=rectangle",
+                    "-loop", "0", str(gif)], check=True)
+    print("wrote", gif.name, f"{gif.stat().st_size / 1e6:.1f} MB")
+
+
+def gazebo_gifs():
+    """The Gazebo clips (made by gazebo/side_by_side.py from training/gazebo_repeats.sh runs, see the post) at 3x."""
+    for name in ("gazebo_stand", "gazebo_walk"):
+        to_gif(TILES / f"{name}.mp4", OUT / f"{name}.gif", speed=3.0, fps=8, width=900, dither=False)
 
 
 if __name__ == "__main__":
-    clips = [a for a in sys.argv[1:] if a != "--rerender"]
-    main(clips or list(CLIPS))
+    clips = [a for a in sys.argv[1:] if a not in ("--rerender", "gazebo")]
+    if "gazebo" in sys.argv[1:]:
+        gazebo_gifs()
+    if clips or len(sys.argv) == 1 or "--rerender" in sys.argv[1:]:
+        main(clips or list(CLIPS))
