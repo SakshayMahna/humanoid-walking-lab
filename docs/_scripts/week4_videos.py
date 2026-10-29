@@ -41,7 +41,7 @@ POLICIES = {
 }
 # clip -> (title, [(tile label, policy)])
 CLIPS = {
-    "step_0": ("Step 0: tracking and the fall penalty", [("Step 0 rewards", "ladder_0")]),
+    "step_0": ("Step 0", [("Tracking + fall penalty", "ladder_0")]),
     "step_1": ("Adding body_orientation_l2", [("Step 0 rewards", "ladder_0"),
                                               ("Step 0 rewards + body_orientation_l2", "ladder_1")]),
     "step_2": ("Adding pose", [("Step 1 rewards", "ladder_1"), ("Step 1 rewards + pose", "ladder_2")]),
@@ -81,7 +81,8 @@ def main(clips):
         subprocess.run([sys.executable, str(REPO / "gazebo" / "side_by_side.py"), str(video),
                         "--title", f"{title} (told to walk at 0.5 m/s)", "--seconds", str(seconds),
                         *[f"{label}|{TILES / name}.mp4" for label, name in tiles]], check=True)
-        to_gif(video, OUT / f"{clip}.gif", start=2.0, seconds=10.0)     # 2 s standing, then 8 s of walking
+        width = 800 if len(tiles) > 1 else 640                          # a single tile is not enlarged
+        to_gif(video, OUT / f"{clip}.gif", start=2.0, seconds=10.0, width=width)   # 2 s standing, then 8 s walking
 
 
 def to_gif(video, gif, start=0.0, seconds=None, speed=1.0, fps=10, width=800, dither=True):

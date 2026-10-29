@@ -90,7 +90,10 @@ Each clip shows one step next to the step before it, in plain MuJoCo: the last 2
 The two tracking rewards compare the robot's speed $$v$$ with the command $$c$$:
 
 $$
-r_\text{lin} = \exp\!\left(-\frac{\lVert c_{xy} - v_{xy}\rVert^2 + 2v_z^2}{0.25}\right), \qquad
+r_\text{lin} = \exp\!\left(-\frac{\lVert c_{xy} - v_{xy}\rVert^2 + 2v_z^2}{0.25}\right)
+$$
+
+$$
 r_\text{ang} = \exp\!\left(-\frac{(c_z - \omega_z)^2 + 0.05\,\lVert\omega_{xy}\rVert^2}{0.5}\right)
 $$
 
