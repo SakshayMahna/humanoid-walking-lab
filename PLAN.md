@@ -24,14 +24,14 @@ training and inference written from scratch, as Kaggle notebooks and blog posts.
 
 ### Day 1: experiment setup
 
-- [ ] Choose the training budget: evaluate the baseline's checkpoints (every 100 iterations) and find where the
-      walking stops changing (expected 1000-1500 iterations).
-- [ ] `training/variants.py`: each variant = a function that changes one thing in the baseline config.
-- [ ] Notebook: a `VARIANT` setting; clones this repo at a fixed commit, registers the variant, trains it.
-- [ ] Evaluation report per policy: command tracking (exists), gait (clearance, air time, slip), smoothness
+- [x] Choose the training budget: evaluate the baseline's checkpoints (every 100 iterations) and find where the
+      walking stops changing (expected 1000-1500 iterations). **1000 iterations** (round 2, reward study README).
+- [x] `training/variants.py`: each variant = a function that changes one thing in the baseline config.
+- [x] Notebook: a `VARIANT` setting; clones this repo at a fixed commit, registers the variant, trains it.
+- [x] Evaluation report per policy ([`training/report.py`](training/report.py), videos with `video_variant.py`): command tracking (exists), gait (clearance, air time, slip), smoothness
       and effort (action rate, joint acceleration, torque, power), posture, robustness (pushes, friction, no
       armature), per-term rewards from the training log, side-by-side video against the baseline.
-- [ ] First push: reward ladder steps 0 and 1.
+- [x] First push: reward ladder steps 0 and 1 (notebook v5).
 
 ### Days 2-3: the reward terms, written myself
 
@@ -59,9 +59,13 @@ allows).
 **Observations and randomization:** gait clock removed; base linear velocity added to the actor (the `walk.onnx`
 design); armature / PD-gain randomization on (does it fix Gazebo without armature?).
 
-- [ ] My implementations of all 16 terms, each tested against Unitree's
-- [ ] Ladder runs 0-8 (9), leave-one-out runs (8), observation/randomization runs (3)
-- [ ] Results table and videos per run
+- [ ] My implementations of all 16 terms, each tested against Unitree's. **Not done:** the study ran Unitree's own
+      terms; moved to Day 4 (my own task config).
+- [x] Ladder runs 0-8 (9: steps 0-7 + baseline as step 8), leave-one-out runs (8), observation/randomization runs
+      (3). Extra rounds 11-16: armature randomization with a height fall check, strict fall check, Humanoid-Gym's
+      hard tracking terms, Gazebo repeats.
+- [x] Results table and videos per run ([training/reward_study/](training/reward_study/)); Week 4 post
+      *What Each Reward Teaches a Walking Robot* (2026-10-29).
 
 ### Day 4: the task from scratch
 
@@ -98,6 +102,11 @@ already make the from-scratch story; the environment moves to the next week.
 
 Course syllabus with modules, labs and references: [classical/README.md](classical/README.md). Weekly schedule
 to be planned.
+
+- [x] Module 1 Part B: LQR balance of the cart-pole ([classical/01_dynamics_lqr_mpc/lqr.py](classical/01_dynamics_lqr_mpc/lqr.py))
+- [x] Module 1 Part C: iLQR swing-up ([classical/01_dynamics_lqr_mpc/ilqr.py](classical/01_dynamics_lqr_mpc/ilqr.py))
+- [x] Module 1 Part D: iLQR as MPC ([classical/01_dynamics_lqr_mpc/mpc.py](classical/01_dynamics_lqr_mpc/mpc.py))
+- [ ] Module 1 Part E: G1 CoM and foot Jacobians
 
 ---
 

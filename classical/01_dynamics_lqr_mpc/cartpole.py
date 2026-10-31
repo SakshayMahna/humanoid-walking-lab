@@ -24,9 +24,16 @@ DT = 0.01       # s, physics step = control step (RK4, so one step is accurate)
 Controller = Callable[[mujoco.MjModel, mujoco.MjData], None]
 
 
-def cartpole_xml(force_limit: float | None = None) -> str:
-    """MJCF string. force_limit (N), if given, clamps the cart force to ±force_limit."""
+def cartpole_xml(force_limit: float | None = None, pole_mass: float = M_POLE, pole_stop: bool = False) -> str:
+    """MJCF string.
+
+    force_limit (N), if given, clamps the cart force to ±force_limit. pole_mass overrides the tip mass (to make the
+    simulated plant differ from the model a controller was designed with). pole_stop adds a joint stop at ±100°
+    (MJCF ranges are in degrees) so a fallen pole lies flat instead of spinning round in videos; leave it off for
+    anything that swings through the bottom.
+    """
     limit = f'ctrllimited="true" ctrlrange="{-force_limit} {force_limit}"' if force_limit else ""
+    stop = 'range="-100 100"' if pole_stop else ""
     return f"""
     <mujoco model="cartpole">
         <option timestep="{DT}" integrator="RK4" gravity="0 0 {-G}"/>
@@ -42,10 +49,8 @@ def cartpole_xml(force_limit: float | None = None) -> str:
                 <geom type="box" size="0.12 0.06 0.04" rgba="0.22 0.53 0.9 1"/>
                 <camera name="follow" mode="track" pos="0 -2.5 0.25" xyaxes="1 0 0 0 0 1"/>  <!-- follows the cart -->
                 <body name="pole">
-                    <!-- +theta: tip towards +x. The stop at ±100° (MJCF ranges are in degrees) only matters after a fall (simulate()
-                         already counts |theta| > pi/2 as fallen); it keeps a fallen pole from spinning round in videos. -->
-                    <joint name="hinge" type="hinge" axis="0 1 0" range="-100 100"/>
-                    <inertial pos="0 0 {L}" mass="{M_POLE}" diaginertia="1e-9 1e-9 1e-9"/>  <!-- point mass -->
+                    <joint name="hinge" type="hinge" axis="0 1 0" {stop}/>  <!-- +theta: tip towards +x -->
+                    <inertial pos="0 0 {L}" mass="{pole_mass}" diaginertia="1e-9 1e-9 1e-9"/>  <!-- point mass -->
                     <geom type="capsule" fromto="0 0 0 0 0 {L}" size="0.012" rgba="0.85 0.35 0.15 1"/>
                     <geom type="sphere" pos="0 0 {L}" size="0.04" rgba="0.85 0.35 0.15 1"/>
                 </body>
@@ -58,8 +63,9 @@ def cartpole_xml(force_limit: float | None = None) -> str:
     """
 
 
-def make_model(force_limit: float | None = None) -> tuple[mujoco.MjModel, mujoco.MjData]:
-    model = mujoco.MjModel.from_xml_string(cartpole_xml(force_limit))
+def make_model(force_limit: float | None = None, pole_mass: float = M_POLE,
+               pole_stop: bool = False) -> tuple[mujoco.MjModel, mujoco.MjData]:
+    model = mujoco.MjModel.from_xml_string(cartpole_xml(force_limit, pole_mass, pole_stop))
     return model, mujoco.MjData(model)
 
 
@@ -95,3 +101,23 @@ def simulate(model, data, s0, controller: Controller | None, duration: float):
         if abs(data.qpos[1]) > np.pi / 2:
             return np.array(t), np.array(S), np.array(U), True
     return np.array(t), np.array(S), np.array(U), False
+
+
+def step_jacobians(model, data, s, u: float, eps: float = 1e-6) -> tuple[np.ndarray, np.ndarray]:
+    """A = d s_next / d s, B = d s_next / d u of one MuJoCo step at (s, u), by central differences.
+
+    (mujoco.mjd_transitionFD does this for the other integrators, but not RK4.)
+    """
+    def step(s_, u_):
+        set_state(model, data, s_, u_)
+        mujoco.mj_step(model, data)
+        return get_state(data)
+
+    s = np.asarray(s, dtype=float)
+    A, B = np.zeros((4, 4)), np.zeros((4, 1))
+    for i in range(4):
+        ds = np.zeros(4)
+        ds[i] = eps
+        A[:, i] = (step(s + ds, u) - step(s - ds, u)) / (2 * eps)
+    B[:, 0] = (step(s, u + eps) - step(s, u - eps)) / (2 * eps)
+    return A, B

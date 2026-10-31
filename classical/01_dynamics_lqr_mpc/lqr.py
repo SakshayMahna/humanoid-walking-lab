@@ -33,11 +33,6 @@ results_dir.mkdir(exist_ok=True)
 Q = np.diag([1.0, 10.0, 0.1, 0.1])
 R = np.array([[0.1]])
 
-
-# ---------------------------------------------------------------------------------------------------------
-# TODO functions
-# ---------------------------------------------------------------------------------------------------------
-
 def linearize_continuous() -> tuple[np.ndarray, np.ndarray]:
     """B1. A_c (4x4), B_c (4x1) of s_dot = f(s, u) linearized at s = 0, u = 0 (upright, at rest).
 
@@ -331,7 +326,7 @@ def part_b7(ctx):
     s0 = np.array([0.0, 0.5, 0.0, 0.0])
     panels = []
     for lim in limits:
-        model, data = make_model(lim)
+        model, data = make_model(lim, pole_stop=True)
         set_state(model, data, s0)
         # The camera rides with the cart: once the pole is lost, the clamped force keeps pushing and the cart
         # runs away down the rail
