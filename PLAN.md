@@ -106,7 +106,7 @@ to be planned.
 - [x] Module 1 Part B: LQR balance of the cart-pole ([classical/01_dynamics_lqr_mpc/lqr.py](classical/01_dynamics_lqr_mpc/lqr.py))
 - [x] Module 1 Part C: iLQR swing-up ([classical/01_dynamics_lqr_mpc/ilqr.py](classical/01_dynamics_lqr_mpc/ilqr.py))
 - [x] Module 1 Part D: iLQR as MPC ([classical/01_dynamics_lqr_mpc/mpc.py](classical/01_dynamics_lqr_mpc/mpc.py))
-- [ ] Module 1 Part E: G1 CoM and foot Jacobians
+- [x] Module 1 Part E: G1 CoM and foot Jacobians ([classical/01_dynamics_lqr_mpc/jacobians.py](classical/01_dynamics_lqr_mpc/jacobians.py))
 
 ---
 
