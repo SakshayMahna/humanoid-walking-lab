@@ -107,6 +107,9 @@ to be planned.
 - [x] Module 1 Part C: iLQR swing-up ([classical/01_dynamics_lqr_mpc/ilqr.py](classical/01_dynamics_lqr_mpc/ilqr.py))
 - [x] Module 1 Part D: iLQR as MPC ([classical/01_dynamics_lqr_mpc/mpc.py](classical/01_dynamics_lqr_mpc/mpc.py))
 - [x] Module 1 Part E: G1 CoM and foot Jacobians ([classical/01_dynamics_lqr_mpc/jacobians.py](classical/01_dynamics_lqr_mpc/jacobians.py))
+- [x] Module 1 Part F: one-leg balance with LQR, yoga poses and flow ([classical/01_dynamics_lqr_mpc/one_leg_lqr.py](classical/01_dynamics_lqr_mpc/one_leg_lqr.py))
+- [x] Module 1 Part G: tip-toe balance, both feet and one leg ([classical/01_dynamics_lqr_mpc/tiptoe_lqr.py](classical/01_dynamics_lqr_mpc/tiptoe_lqr.py))
+- [x] Module 1 Part H: eigenvalue and mode analysis of the one-leg controller and the flow ([classical/01_dynamics_lqr_mpc/lqr_analysis.py](classical/01_dynamics_lqr_mpc/lqr_analysis.py))
 
 ---
 

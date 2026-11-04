@@ -64,6 +64,11 @@ by shooting and collocation; iLQR; MPC as re-planning from the current state.
    *Done when:* your Riccati solution matches `scipy.linalg.solve_discrete_are`.
 2. Swing-up with your own iLQR, then iLQR as MPC with a wrong pole mass and pushes.
 3. G1: CoM, CoM Jacobian, foot Jacobians from MuJoCo, checked by finite differences.
+4. G1 on one leg with LQR (torque control, inverse dynamics, `mjd_transitionFD`, a CoM-over-foot cost), yoga
+   poses, and a gain-scheduled flow between them.
+5. Tip-toe (both feet, and one leg on a single toe tip), and an analysis of the one-leg controller: open- and
+   closed-loop eigenvalues and modes, controllability, the gains as a balance strategy, the cost-to-go, the linear
+   model's validity, and gain scheduling.
 
 **For learning.** Compare LQR's value function with a critic learned by PPO on the same cart-pole. Try
 [MuJoCo MPC](https://github.com/google-deepmind/mujoco_mpc), sampling-based MPC that sits between
