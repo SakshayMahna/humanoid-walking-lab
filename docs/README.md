@@ -30,6 +30,7 @@ exercises; only colours, lighting and layout are added. Run them from the repo r
 | `week3_runs.sh` | The sim-clock Gazebo runs behind the Week 3 tables → `recordings/week3/` (needs Docker) |
 | `week4_banner.py [preview_dir]` | `assets/images/week-4/banner.png`: the reward ladder (lying → walking) as ghosts of the real trained policies |
 | `week4_videos.py [clip ...] [--rerender] [gazebo]` | `assets/images/week-4/*.gif`: looping training-run clips in plain MuJoCo, same camera and test for every robot (needs the Kaggle run outputs); `gazebo` makes the 3x-speed Gazebo GIFs; the Gazebo tables come from `training/gazebo_repeats.sh` |
+| `week5_assets.py [clips] [charts] [banner] [name ...] [preview=DIR]` | `assets/images/week-5/`: GIFs, SVG charts and banner, from the code in `classical/01_dynamics_lqr_mpc/` with the blog's scenery |
 
 ```bash
 .venv/bin/python docs/_scripts/week2_assets.py robot
@@ -47,3 +48,4 @@ Post URLs come from the file name (`permalink: /blog/:title/`), so name new post
 | 2 | [Making the G1 Walk](https://sakshaymahna.github.io/humanoid-walking-lab/blog/making-the-unitree-g1-walk/) |
 | 3 | [From MuJoCo to Gazebo](https://sakshaymahna.github.io/humanoid-walking-lab/blog/from-mujoco-to-gazebo/) |
 | 4 | [What Each Reward Teaches a Walking Robot](https://sakshaymahna.github.io/humanoid-walking-lab/blog/what-each-reward-teaches-a-walking-robot/) |
+| 5 | [Classical Control for Humanoid Robots: LQR, iLQR and MPC](https://sakshaymahna.github.io/humanoid-walking-lab/blog/classical-control-for-humanoid-robots-lqr-ilqr-mpc/) |
