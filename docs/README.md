@@ -31,6 +31,7 @@ exercises; only colours, lighting and layout are added. Run them from the repo r
 | `week4_banner.py [preview_dir]` | `assets/images/week-4/banner.png`: the reward ladder (lying → walking) as ghosts of the real trained policies |
 | `week4_videos.py [clip ...] [--rerender] [gazebo]` | `assets/images/week-4/*.gif`: looping training-run clips in plain MuJoCo, same camera and test for every robot (needs the Kaggle run outputs); `gazebo` makes the 3x-speed Gazebo GIFs; the Gazebo tables come from `training/gazebo_repeats.sh` |
 | `week5_assets.py [clips] [charts] [banner] [name ...] [preview=DIR]` | `assets/images/week-5/`: GIFs, SVG charts and banner, from the code in `classical/01_dynamics_lqr_mpc/` with the blog's scenery |
+| `week5_linkedin.py` | `assets/videos/week-5/yoga_flow.gif`: LinkedIn GIF (1080x1350) of the one-foot yoga flow, same physics as the post's clip |
 
 ```bash
 .venv/bin/python docs/_scripts/week2_assets.py robot
