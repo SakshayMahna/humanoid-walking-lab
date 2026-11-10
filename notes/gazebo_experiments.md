@@ -209,6 +209,27 @@ distinct frames/s in Docker on the Mac (CPU rendering), whatever the capture rat
 
 ---
 
+### Diego's development branch (2026-11-10)
+
+His newer node (`policy_manager_main`, branch `development` at e8ce7f7) runs `walk.onnx` (29 actions) on a wall timer
+at 60 Hz (`config/walk.yaml`; his old node used 50 Hz, training is 50 Hz). Robot model unchanged since `main`.
+[`gazebo/diego_dev_repeats.sh`](../gazebo/diego_dev_repeats.sh), headless, his code unchanged; the rate is changed
+only in the container's installed config. 3 standing runs (30 s) + 1 walking run (stand 4 s, then 0.5 m/s) each:
+
+| Model | Rate | Standing 30 s: moved, turned | Walking: vx, vy, turned |
+|---|---|---|---|
+| his (`g1_free_roam`) | 60 Hz | 0.08-0.20 m, −49 to −58° | 0.57, −0.01 m/s, −56° |
+| his | 50 Hz | 0.10-0.57 m, −29 to −53° | 0.61, −0.02 m/s, −88° |
+| `mj_gains_vel_d_armature` | 60 Hz | 0.04-0.05 m, 0° | 0.54, −0.02 m/s, +3° |
+| `mj_gains_vel_d_armature` | 50 Hz | 0.04-0.05 m, 0° | 0.56, −0.02 m/s, +4° |
+
+- The turning comes from the Gazebo joint model, not the rate: the corrected model fixes it at both rates.
+- Sent upstream as an extra model, `robot_model:=g1_training_pd` (the `mj_gains_vel_d_armature` SDF with a header
+  comment, his default unchanged): [PR #1](https://github.com/RoboticsLabURJC/2025-tfg-diego-lopez/pull/1). Tested
+  through that option: standing 0.05 m, 0°; walking 0.54 m/s, +1°.
+- Custom model paths need `bridge_config:=g1_pos` with his `sim_core.py` (`auto` only knows his aliases).
+- Videos (not tracked): `recordings/diego_dev/compare_{stand,walk}.mp4`.
+
 ## 7. Open questions
 
 Worked through one at a time, in this order: Q1 and Q2 decide whether the Gazebo setup is fair enough to

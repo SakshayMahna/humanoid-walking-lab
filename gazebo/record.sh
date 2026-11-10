@@ -20,7 +20,7 @@ $COMPOSE up -d --build
 # Wait for the VNC X server (display :1) inside the container
 $COMPOSE exec -T -u ubuntu ros bash -c 'until [ -e /tmp/.X11-unix/X1 ]; do sleep 1; done'
 
-$COMPOSE exec -T -u ubuntu -e FPS="$FPS" ros bash /home/ubuntu/humanoid-walking-lab/gazebo/record_inside.sh \
+$COMPOSE exec -T -u ubuntu -e FPS="$FPS" -e DIEGO_NODE="${DIEGO_NODE:-}" -e SIM_ARGS="${SIM_ARGS:-}" ros bash /home/ubuntu/humanoid-walking-lab/gazebo/record_inside.sh \
     "$VX" "$VY" "$WZ" "$SECONDS_TOTAL" "$STAND" "$NAME" "$POLICY_ARGS"
 
 # Small GIF next to the MP4 (made inside the container with its ffmpeg; written to the mounted repo)

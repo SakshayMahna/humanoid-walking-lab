@@ -4,6 +4,8 @@
 #
 # Usage: run_scenario.sh VX VY WZ SECONDS STAND_SECONDS NAME [POLICY_ARGS]   ->  recordings/NAME.csv
 #   no POLICY_ARGS: Diego's g1_locomotion node (walk_free_elbows.onnx)
+#     DIEGO_NODE=policy_manager_main: his newer multi-policy node instead (development branch)
+#     SIM_ARGS="robot_model:=...": extra arguments for his sim_core.py (e.g. a corrected robot model)
 #   POLICY_ARGS:    our g1_policy_runner, e.g. "policy:=unitree clock:=sim"
 # ODOM_LOG=1: also log every odometry message (400 Hz) to recordings/NAME.odom.csv
 # STEP_LOG=1: also log the wall and sim time of every policy step to recordings/NAME.steps.csv
@@ -21,15 +23,17 @@ stop_stack() {
     pkill -f parameter_bridge || true
     pkill -f "gz sim" || true
     pkill -f g1_locomotion_main || true
+    pkill -f policy_manager_main || true
     pkill -f "lib/g1_policy_runner/policy_runner" || true
 }
 stop_stack
 sleep 2
 
 if [ -z "$POLICY_ARGS" ]; then
-    ros2 run g1_locomotion g1_locomotion_main > $LAB/recordings/$NAME.inference.log 2>&1 &
+    ros2 run g1_locomotion "${DIEGO_NODE:-g1_locomotion_main}" > $LAB/recordings/$NAME.inference.log 2>&1 &
     sleep 2
-    ros2 launch "$(ros2 pkg prefix g1_sim)/share/g1_sim/g1_sim/sim_core.py" gui:=false \
+    # shellcheck disable=SC2086  (SIM_ARGS is several launch arguments)
+    ros2 launch "$(ros2 pkg prefix g1_sim)/share/g1_sim/g1_sim/sim_core.py" gui:=false ${SIM_ARGS:-} \
         > $LAB/recordings/$NAME.sim.log 2>&1 &
 else
     # shellcheck disable=SC2086  (POLICY_ARGS is several launch arguments)

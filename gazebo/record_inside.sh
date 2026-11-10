@@ -5,6 +5,7 @@
 # Usage: record_inside.sh VX VY WZ SECONDS STAND_SECONDS NAME [POLICY_ARGS]
 #   no POLICY_ARGS: Diego's README command (g1_locomotion, walk_free_elbows.onnx)
 #   POLICY_ARGS:    our g1_policy_runner, e.g. "policy:=unitree clock:=sim"
+#   DIEGO_NODE=policy_manager_main (no POLICY_ARGS): his newer node + sim_core.py with SIM_ARGS (development branch)
 set -eo pipefail
 
 VX=$1; VY=$2; WZ=$3; SECONDS_TOTAL=$4; STAND=$5; NAME=$6; POLICY_ARGS=$7
@@ -29,6 +30,7 @@ stop_stack() {
     pkill -f parameter_bridge || true
     pkill -f "gz sim" || true
     pkill -f g1_locomotion_main || true
+    pkill -f policy_manager_main || true
     pkill -f "lib/g1_policy_runner/policy_runner" || true
 }
 stop_stack
@@ -39,7 +41,13 @@ mkdir -p ~/.gz/sim/8
 cp $LAB/gazebo/gui_record.config ~/.gz/sim/8/gui.config
 
 # Both start the inference node first, then (2 s later) Gazebo + bridge + spawn.
-if [ -z "$POLICY_ARGS" ]; then
+if [ -z "$POLICY_ARGS" ] && [ -n "${DIEGO_NODE:-}" ]; then
+    # His development branch: the node in one terminal, then the simulation (his message, 2026-11-10)
+    ros2 run g1_locomotion "$DIEGO_NODE" > "$OUT/$NAME.inference.log" 2>&1 &
+    sleep 2
+    # shellcheck disable=SC2086  (SIM_ARGS is several launch arguments)
+    ros2 launch "$(ros2 pkg prefix g1_sim)/share/g1_sim/g1_sim/sim_core.py" ${SIM_ARGS:-} > "$OUT/$NAME.launch.log" 2>&1 &
+elif [ -z "$POLICY_ARGS" ]; then
     ros2 launch g1_locomotion g1_locomotion.launch.py > "$OUT/$NAME.launch.log" 2>&1 &   # Diego's README
 else
     # shellcheck disable=SC2086  (POLICY_ARGS is several launch arguments)
