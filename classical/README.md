@@ -87,11 +87,16 @@ don't slip, and the CoP stays inside the foot. The LIPM turns that into a linear
 polygon. LIPM derivation and closed-form solution; the cart-table model; ZMP preview control.
 
 **Lab.**
-1. G1 standing and swaying: CoP from contact forces vs. ZMP from CoM motion.
+1. Contact forces on the G1: per-contact forces checked against Newton and MuJoCo's solver, friction cones,
+   the CoP and support polygon through a weight shift and leg lift, and a sideways pull that either slides or
+   tips the robot depending on friction. An interactive viewer to push the robot and watch the CoP.
+   *Done when:* the forces sum to the weight, every contact stays in its cone, the CoP sits under the CoM
+   standing still, and the slide/tip order matches mu vs. d/h.
+2. G1 standing and swaying: CoP from contact forces vs. ZMP from CoM motion.
    *Done when:* the two agree, and a push that tips the robot drives the ZMP to the edge of the foot first.
-2. 3D LIPM: CoM trajectory for a footstep plan with preview control (Kajita 2003).
+3. 3D LIPM: CoM trajectory for a footstep plan with preview control (Kajita 2003).
    *Done when:* the ZMP tracks the stepped reference, with the CoM moving before each step as in the paper.
-3. Optional: the same plan as a ZMP-MPC QP with OSQP (Wieber 2006).
+4. Optional: the same plan as a ZMP-MPC QP with OSQP (Wieber 2006).
 
 **For learning.** Log the ZMP and CoP of the Track 1 policies. Do learned gaits keep the ZMP inside the
 foot, or do they rely on dynamic falling?

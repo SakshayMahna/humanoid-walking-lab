@@ -110,6 +110,7 @@ to be planned.
 - [x] Module 1 Part F: one-leg balance with LQR, yoga poses and flow ([classical/01_dynamics_lqr_mpc/one_leg_lqr.py](classical/01_dynamics_lqr_mpc/one_leg_lqr.py))
 - [x] Module 1 Part G: tip-toe balance, both feet and one leg ([classical/01_dynamics_lqr_mpc/tiptoe_lqr.py](classical/01_dynamics_lqr_mpc/tiptoe_lqr.py))
 - [x] Module 1 Part H: eigenvalue and mode analysis of the one-leg controller and the flow ([classical/01_dynamics_lqr_mpc/lqr_analysis.py](classical/01_dynamics_lqr_mpc/lqr_analysis.py))
+- [x] Module 2 Part A: contact forces, friction cones, CoP and support polygon; weight shift, leg lift, sideways pull ([classical/02_contact_zmp_lipm/contact_forces.py](classical/02_contact_zmp_lipm/contact_forces.py))
 
 ---
 
