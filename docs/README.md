@@ -32,6 +32,7 @@ exercises; only colours, lighting and layout are added. Run them from the repo r
 | `week4_videos.py [clip ...] [--rerender] [gazebo]` | `assets/images/week-4/*.gif`: looping training-run clips in plain MuJoCo, same camera and test for every robot (needs the Kaggle run outputs); `gazebo` makes the 3x-speed Gazebo GIFs; the Gazebo tables come from `training/gazebo_repeats.sh` |
 | `week5_assets.py [clips] [charts] [banner] [name ...] [preview=DIR]` | `assets/images/week-5/`: GIFs, SVG charts and banner, from the code in `classical/01_dynamics_lqr_mpc/` with the blog's scenery |
 | `week5_linkedin.py` | `assets/videos/week-5/yoga_flow.gif`: LinkedIn GIF (1080x1350) of the one-foot yoga flow, same physics as the post's clip |
+| `week6_assets.py [clip] [linkedin] [banner] [preview=DIR]` | `assets/images/week-6/` (slide-or-tip GIF, banner) and `assets/videos/week-6/slide_or_tip.gif` (LinkedIn, 1080x1350): the sideways pull of `classical/02_contact_zmp_lipm/` on two floors |
 
 ```bash
 .venv/bin/python docs/_scripts/week2_assets.py robot
@@ -50,3 +51,4 @@ Post URLs come from the file name (`permalink: /blog/:title/`), so name new post
 | 3 | [From MuJoCo to Gazebo](https://sakshaymahna.github.io/humanoid-walking-lab/blog/from-mujoco-to-gazebo/) |
 | 4 | [What Each Reward Teaches a Walking Robot](https://sakshaymahna.github.io/humanoid-walking-lab/blog/what-each-reward-teaches-a-walking-robot/) |
 | 5 | [Classical Control for Humanoid Robots: LQR, iLQR and MPC](https://sakshaymahna.github.io/humanoid-walking-lab/blog/classical-control-for-humanoid-robots-lqr-ilqr-mpc/) |
+| 6 | [Six Weeks of Humanoid Walking](https://sakshaymahna.github.io/humanoid-walking-lab/blog/six-weeks-of-humanoid-walking/) |
